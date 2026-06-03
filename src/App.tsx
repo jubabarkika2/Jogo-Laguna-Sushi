@@ -62,18 +62,18 @@ export default function App() {
       
       {/* Decorative Neon Header Logo & Delivery banner */}
       <header className="bg-slate-900/80 backdrop-blur-md border-b border-slate-800 sticky top-0 z-40 px-3 sm:px-4 py-2.5 sm:py-3 select-none">
-        <div className="max-w-7xl mx-auto flex flex-row flex-wrap sm:flex-nowrap items-center justify-between gap-3 sm:gap-4">
+        <div className="max-w-7xl mx-auto flex flex-row flex-nowrap items-center justify-between gap-2.5 sm:gap-4">
           
           {/* Logo Brand with custom Japanese elements */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-salmon-500 via-rose-500 to-amber-500 flex items-center justify-center text-xl sm:text-2xl shadow-lg shadow-salmon-500/10 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-3">
+            <div className="w-7 h-7 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-salmon-500 via-rose-500 to-amber-500 flex items-center justify-center text-lg sm:text-2xl shadow-lg shadow-salmon-500/10 shrink-0">
               🍣
             </div>
             <div>
-              <h1 className="text-sm sm:text-base font-black tracking-tight text-white flex items-center gap-1 uppercase">
-                LAGUNA SUSHI <span className="text-[9px] sm:text-[10px] bg-salmon-500/20 text-salmon-400 font-mono font-bold px-1 py-0.5 rounded border border-salmon-500/35 leading-none shrink-0">DELIVERY</span>
+              <h1 className="text-xs sm:text-base font-black tracking-tight text-white flex items-center gap-1 uppercase">
+                LAGUNA SUSHI <span className="text-[9px] sm:text-[10px] bg-salmon-500/20 text-salmon-400 font-mono font-bold px-1 py-0.5 rounded border border-salmon-500/35 leading-none shrink-0 hidden xs:inline-block">DELIVERY</span>
               </h1>
-              <p className="text-[10px] sm:text-[11px] text-slate-400 leading-tight">Jogue e ganhe descontos reais!</p>
+              <p className="text-[10px] sm:text-[11px] text-slate-400 leading-tight hidden xs:block">Jogue e ganhe descontos reais!</p>
             </div>
           </div>
 
@@ -89,7 +89,7 @@ export default function App() {
           </div>
 
           {/* Right Navigation / Rewards Access panel */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <AnimatePresence>
               {hasUnlockedCoupon && (
                 <motion.button
@@ -98,15 +98,15 @@ export default function App() {
                   transition={{ repeat: Infinity, repeatDelay: 4, duration: 0.8 }}
                   onClick={() => setIsCouponModalOpen(true)}
                   id="coupon-indicator-btn"
-                  className="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-slate-950 font-black text-[10px] sm:text-[11px] px-2 py-1 sm:px-3 sm:py-2 rounded-lg sm:rounded-xl flex items-center gap-1 shadow-md shadow-amber-500/15 cursor-pointer border border-yellow-400/30"
+                  className="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-slate-950 font-black text-[9px] xs:text-[10px] sm:text-[11px] px-1.5 py-1 xs:px-2.5 xs:py-1.5 sm:px-3 sm:py-2 rounded-lg sm:rounded-xl flex items-center gap-1 shadow-md shadow-amber-500/15 cursor-pointer border border-yellow-400/30"
                 >
-                  <Gift className="w-3.5 h-3.5 text-slate-950 animate-bounce" />
+                  <Gift className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-950 animate-bounce" />
                   <span className="hidden xs:inline">CUPOM</span> <span>5% OFF!</span>
                 </motion.button>
               )}
             </AnimatePresence>
 
-            <div className="flex gap-1 items-center bg-slate-950 px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-lg sm:rounded-xl border border-slate-800 font-mono text-[10px] sm:text-[11px] text-slate-400 shrink-0">
+            <div className="flex gap-1 items-center bg-slate-950 px-1.5 py-1 xs:px-2 xs:py-1.5 sm:px-2.5 sm:py-1.5 rounded-lg sm:rounded-xl border border-slate-800 font-mono text-[9px] xs:text-[10px] sm:text-[11px] text-slate-400 shrink-0">
               <span className="hidden xs:inline text-slate-400">Espera:</span>
               <span className="font-semibold text-slate-200">
                 {order.status === 'delivered' ? 'Entregue' : `~${Math.ceil(order.timeRemaining / 60)} min`}
@@ -129,12 +129,9 @@ export default function App() {
       </main>
 
       {/* Aesthetic lacquered footer */}
-      <footer className="bg-slate-950 py-6 border-t border-slate-900 text-center text-xs text-slate-600 font-mono flex flex-col md:flex-row items-center justify-between px-6 max-w-7xl w-full mx-auto select-none">
+      <footer className="bg-slate-950 py-6 border-t border-slate-900 text-center text-xs text-slate-600 font-mono flex items-center justify-center px-6 max-w-7xl w-full mx-auto select-none">
         <p className="flex items-center gap-1.5">
-          <span>🎎 Jogo do Delivery fabricado artesanalmente © 2026.</span>
-        </p>
-        <p className="text-[10px] text-slate-600 mt-2 md:mt-0">
-          Suporte: <strong>(11) 99999-SUSHI</strong> • Termos e Condições do Clã.
+          <span>🎎 Jogo do Laguna Sushi Delivery @2026</span>
         </p>
       </footer>
 

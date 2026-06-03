@@ -4,6 +4,7 @@ import { soundManager } from '../utils/sound';
 import { Play, RotateCcw, Volume2, VolumeX, Pause, Trophy, Info, Eye, Zap, Flame, ShieldAlert, Award } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { getLeaderboard, saveHighScoreToFirestore, testConnection } from '../utils/firebase';
+import { getSupabaseLeaderboard, saveHighScoreToSupabase, isSupabaseConfigured } from '../utils/supabase';
 
 interface SushiGameProps {
   order: OrderInfo;
@@ -25,7 +26,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
   const [highScores, setHighScores] = useState<HighScore[]>([
     { name: 'Sushiman Jiro', score: 120, date: '03/06/2026' },
     { name: 'Motoboy Cleiton', score: 95, date: '02/06/2026', isOrderCourier: true },
-    { name: 'Temaki Lover', score: 70, date: '01/06/2026' }
+    { name: 'Sushiwoman Sara 👩‍🍳', score: 70, date: '01/06/2026' }
   ]);
   const [showInstructions, setShowInstructions] = useState(false);
   const [playerName, setPlayerName] = useState('Seu Nome');
@@ -107,15 +108,20 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
 
   // Load High scores from database with localstorage as fallback setup
   useEffect(() => {
-    testConnection(); // Verify connection on boot
+    if (!isSupabaseConfigured) {
+      testConnection(); // Verify connection on boot for Firebase if using Firebase
+    }
     
     const loadScores = async () => {
       try {
-        const scores = await getLeaderboard();
+        const scores = isSupabaseConfigured
+          ? await getSupabaseLeaderboard()
+          : await getLeaderboard();
+
         if (scores && scores.length > 0) {
           setHighScores(scores);
         } else {
-          // If Firestore is empty/new, load the defaults or localstorage
+          // If Database is empty/new, load the defaults or localstorage
           const saved = localStorage.getItem('sushi_delivery_scores');
           if (saved) {
             setHighScores(JSON.parse(saved));
@@ -152,7 +158,15 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
 
       const rect = container.getBoundingClientRect();
       canvas.width = rect.width;
-      canvas.height = Math.min(rect.width * 0.5, 420); // Maintain 2:1 aspect ratio or caps at 420
+      
+      if (rect.width < 640) {
+        // On mobile, let the game occupies a taller aspect ratio to use vertical screen space
+        // Maximize game canvas to fill more space beautifully
+        const mobileHeight = Math.min(rect.width * 1.1, rect.height || 450);
+        canvas.height = Math.max(mobileHeight, 350);
+      } else {
+        canvas.height = Math.min(rect.width * 0.5, 420); // Maintain 2:1 aspect ratio or caps at 420
+      }
     };
 
     updateCanvasSize();
@@ -513,11 +527,19 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
       date: new Date().toLocaleDateString('pt-BR')
     };
 
-    // Save to Firestore in background
-    try {
-      await saveHighScoreToFirestore(scoreItem);
-    } catch (err) {
-      console.error('Could not save to Cloud Firestore:', err);
+    // Save to Database in background
+    if (isSupabaseConfigured) {
+      try {
+        await saveHighScoreToSupabase(scoreItem);
+      } catch (err) {
+        console.error('Could not save to Supabase:', err);
+      }
+    } else {
+      try {
+        await saveHighScoreToFirestore(scoreItem);
+      } catch (err) {
+        console.error('Could not save to Cloud Firestore:', err);
+      }
     }
 
     // Save locally and update state immediately
@@ -529,9 +551,11 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
       return updated;
     });
 
-    // Refresh from Firestore to retrieve any other player's scores
+    // Refresh from Database to retrieve any other player's scores
     try {
-      const freshScores = await getLeaderboard();
+      const freshScores = isSupabaseConfigured
+        ? await getSupabaseLeaderboard()
+        : await getLeaderboard();
       if (freshScores && freshScores.length > 0) {
         setHighScores(freshScores);
       }
@@ -555,20 +579,22 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
     const scale = canvas.width / BASE_WIDTH;
     ctx.scale(scale, scale);
 
+    const virtualHeight = canvas.height / scale;
+
     // 1. Draw Environmental Beautiful Background Gradient linking to status
     const tCol = getThemeColors();
-    const grad = ctx.createLinearGradient(0, 0, 0, BASE_HEIGHT);
+    const grad = ctx.createLinearGradient(0, 0, 0, virtualHeight);
     grad.addColorStop(0, tCol.bgGradStart);
     grad.addColorStop(1, tCol.bgGradEnd);
     ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, BASE_WIDTH, BASE_HEIGHT);
+    ctx.fillRect(0, 0, BASE_WIDTH, virtualHeight);
 
     // Draw Parallax decorative assets based on level theme
     drawParallaxDecorations(ctx);
 
     // 2. Draw ground platform
     ctx.fillStyle = tCol.groundColor;
-    ctx.fillRect(0, GROUND_Y, BASE_WIDTH, BASE_HEIGHT - GROUND_Y);
+    ctx.fillRect(0, GROUND_Y, BASE_WIDTH, virtualHeight - GROUND_Y);
     // Draw neon lining on ground edge
     ctx.strokeStyle = tCol.accentColor;
     ctx.lineWidth = 3;
@@ -877,60 +903,129 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
       drawScooterWheel(ctx);
       ctx.restore();
     } else {
-      // CUTE TEMAKI BANDANA SAMURAI ROLL
-      // Conical Seaweed wrap
-      ctx.fillStyle = '#163d27';
-      ctx.strokeStyle = '#225d3c';
+      // BEAUTIFUL CUTE FEMALE SUSHIMAN (CHEF YUKI) ARTWORK
+      // 1. Draw Chef white kimono/body robe
+      ctx.fillStyle = '#ffffff'; // White kimono
+      ctx.strokeStyle = '#2d3436';
       ctx.lineWidth = 2.5;
       ctx.beginPath();
-      ctx.moveTo(0, p.height / 2);
-      ctx.lineTo(p.width / 2, -p.height / 2);
-      ctx.lineTo(-p.width / 2, -p.height / 2);
+      ctx.roundRect(-16, 2, 32, p.height / 2 - 2, [0, 0, 4, 4]);
+      ctx.fill();
+      ctx.stroke();
+
+      // Red Sash belt (Obi wrapper)
+      ctx.fillStyle = '#ff4d4d';
+      ctx.beginPath();
+      ctx.rect(-16, 12, 32, 6);
+      ctx.fill();
+
+      // Kimono overlapping folds (V-neck neckliner)
+      ctx.strokeStyle = '#dfe4ea';
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      ctx.moveTo(-10, 2);
+      ctx.lineTo(0, 10);
+      ctx.lineTo(10, 2);
+      ctx.stroke();
+
+      // 2. Head background hair layer (cute buns that bounce)
+      ctx.fillStyle = '#1e272e'; // Silky black/dark-slate hair color
+      const hairBounce = Math.sin(p.animFrame * 1.5) * 2.5;
+      ctx.beginPath();
+      ctx.arc(-16, -11 + hairBounce, 7, 0, Math.PI * 2); // left hair bun
+      ctx.arc(16, -11 + hairBounce, 7, 0, Math.PI * 2);  // right hair bun
+      ctx.fill();
+
+      // Cute red ribbon ties for buns
+      ctx.fillStyle = '#ff4d4d';
+      ctx.fillRect(-17, -7 + hairBounce, 3, 4);
+      ctx.fillRect(14, -7 + hairBounce, 3, 4);
+
+      // 3. Round cute head skin base
+      ctx.fillStyle = '#fedbb4'; // warm skin tone
+      ctx.beginPath();
+      ctx.arc(0, -8, 14, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 4. Front overlay hair (Bangs & sides framing face)
+      ctx.fillStyle = '#1e272e';
+      ctx.beginPath();
+      ctx.arc(0, -11, 14, Math.PI, 0); // Hair bangs cap
+      ctx.fill();
+
+      // Side strands
+      ctx.beginPath();
+      ctx.moveTo(-14, -8);
+      ctx.lineTo(-14, 0);
+      ctx.lineTo(-10, -4);
       ctx.closePath();
       ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(14, -8);
+      ctx.lineTo(14, 0);
+      ctx.lineTo(10, -4);
+      ctx.closePath();
+      ctx.fill();
+
+      // 5. White Hachimaki (Chef headband) with red sun symbol
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(-12, -16, 24, 5); // Headband strip
+
+      // Red sun emblem in center of headband
+      ctx.fillStyle = '#fc3d39';
+      ctx.beginPath();
+      ctx.arc(0, -13.5, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Back hanging headband tie ribbons
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(-12, -14);
+      ctx.lineTo(-18, -17 + Math.sin(p.animFrame) * 1.5);
+      ctx.moveTo(-12, -14);
+      ctx.lineTo(-17, -11 + Math.sin(p.animFrame + 1) * 1.5);
       ctx.stroke();
 
-      // Orange Tobiko Flying fish row topping spilling out top cone plate
-      ctx.fillStyle = '#ff7f50';
+      // 6. Draw eyes & face expressions based on state
+      ctx.fillStyle = '#111111';
+      if (p.isJumping) {
+        // Joyful closed anime eyes ^^ when jumping/double jumping
+        ctx.strokeStyle = '#111111';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(-6, -8, 3, Math.PI, 0, false);
+        ctx.arc(6, -8, 3, Math.PI, 0, false);
+        ctx.stroke();
+      } else {
+        // Beautiful shiny rounded cartoon eyes
+        ctx.beginPath();
+        ctx.arc(-5.5, -8, 3.2, 0, Math.PI * 2);
+        ctx.arc(5.5, -8, 3.2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Shiny reflections
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(-6.5, -9, 0.9, 0, Math.PI * 2);
+        ctx.arc(4.5, -9, 0.9, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Rosy blush on cheeks
+      ctx.fillStyle = 'rgba(255, 105, 180, 0.65)';
       ctx.beginPath();
-      ctx.arc(-10, -p.height / 2, 8, 0, Math.PI * 2);
-      ctx.arc(10, -p.height / 2, 8, 0, Math.PI * 2);
-      ctx.arc(0, -p.height / 2 - 2, 7, 0, Math.PI * 2);
+      ctx.arc(-10, -4, 2.5, 0, Math.PI * 2);
+      ctx.arc(10, -4, 2.5, 0, Math.PI * 2);
       ctx.fill();
 
-      // White Rice fillings peek
-      ctx.fillStyle = '#f8f9f9';
+      // Cute smile
+      ctx.strokeStyle = '#111111';
+      ctx.lineWidth = 1.8;
       ctx.beginPath();
-      ctx.arc(-6, -p.height / 2 + 5, 5, 0, Math.PI * 2);
-      ctx.arc(6, -p.height / 2 + 5, 5, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Cute Samurai head Bandana wrapped around temaki!
-      ctx.fillStyle = '#e74c3c'; // Red Bandana
-      ctx.fillRect(-p.width / 2 + 5, -8, p.width - 10, 6);
-      // Bandana ties tails
-      ctx.strokeStyle = '#e74c3c';
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.moveTo(-p.width / 2 + 5, -5);
-      ctx.lineTo(-p.width / 2 - 3, 0);
-      ctx.moveTo(-p.width / 2 + 5, -5);
-      ctx.lineTo(-p.width / 2 - 2, -8);
+      ctx.arc(0, -3.5, 2.5, 0, Math.PI, false);
       ctx.stroke();
-
-      // Eyes on bandana
-      ctx.fillStyle = '#fff';
-      ctx.beginPath();
-      ctx.arc(-6, -5, 1.8, 0, Math.PI * 2);
-      ctx.arc(6, -5, 1.8, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Cheeks blush
-      ctx.fillStyle = 'rgba(255, 105, 180, 0.5)';
-      ctx.beginPath();
-      ctx.arc(-11, 2, 2.5, 0, Math.PI * 2);
-      ctx.arc(11, 2, 2.5, 0, Math.PI * 2);
-      ctx.fill();
     }
 
     ctx.restore(); // Restore Player Transform
@@ -967,10 +1062,10 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
       // Draw 3 tatami sliding panel frames
       for (let i = 0; i < 4; i++) {
         const xCoord = (i * 260 - (dist * 0.15)) % (BASE_WIDTH + 100);
-        ctx.fillRect(xCoord, 40, 180, 220);
+        ctx.fillRect(xCoord, 10, 180, GROUND_Y - 20);
         ctx.strokeStyle = 'rgba(120, 80, 40, 0.15)';
         ctx.lineWidth = 2;
-        ctx.strokeRect(xCoord, 40, 180, 220);
+        ctx.strokeRect(xCoord, 10, 180, GROUND_Y - 20);
       }
 
       // Draw red decorative lanterns glowing up high
@@ -993,12 +1088,13 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
       for (let i = 0; i < 5; i++) {
         const xBuilding = (i * 220 - (dist * 0.1)) % (BASE_WIDTH + 120);
         const wBuilding = 140;
-        const hBuilding = 160 + (i % 2) * 50;
+        const hBuilding = 240 + (i % 2) * 80; // MUCH taller buildings (was 160 + (i % 2) * 50)
         ctx.fillRect(xBuilding, GROUND_Y - hBuilding, wBuilding, hBuilding);
 
         // Grid windows
-        ctx.fillStyle = 'rgba(255, 255, 50, 0.12)';
-        for (let r = 0; r < 5; r++) {
+        ctx.fillStyle = 'rgba(255, 255, 50, 0.09)';
+        const rows = Math.min(8, Math.floor((hBuilding - 30) / 30));
+        for (let r = 0; r < rows; r++) {
           for (let c = 0; c < 3; c++) {
             ctx.fillRect(xBuilding + 15 + c * 40, GROUND_Y - hBuilding + 15 + r * 30, 20, 15);
           }
@@ -1010,18 +1106,18 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
       ctx.fillStyle = 'rgba(18, 12, 38, 0.65)';
       ctx.beginPath();
       ctx.moveTo(400 - (dist * 0.04) % 1000, GROUND_Y);
-      ctx.lineTo(550 - (dist * 0.04) % 1000, 160);
-      ctx.lineTo(590 - (dist * 0.04) % 1000, 160);
+      ctx.lineTo(550 - (dist * 0.04) % 1000, 120); // slightly higher peak
+      ctx.lineTo(590 - (dist * 0.04) % 1000, 120);
       ctx.lineTo(740 - (dist * 0.04) % 1000, GROUND_Y);
       ctx.fill();
 
       // Fuji snow cap outline
       ctx.fillStyle = 'rgba(255, 250, 250, 0.5)';
       ctx.beginPath();
-      ctx.moveTo(525 - (dist * 0.04) % 1000, 180);
-      ctx.lineTo(550 - (dist * 0.04) % 1000, 160);
-      ctx.lineTo(590 - (dist * 0.04) % 1000, 160);
-      ctx.lineTo(615 - (dist * 0.04) % 1000, 180);
+      ctx.moveTo(515 - (dist * 0.04) % 1000, 150);
+      ctx.lineTo(550 - (dist * 0.04) % 1000, 120);
+      ctx.lineTo(590 - (dist * 0.04) % 1000, 120);
+      ctx.lineTo(625 - (dist * 0.04) % 1000, 150);
       ctx.fill();
     } else {
       // SACRED SAKURA GARDEN: Cherry trees raining petals
@@ -1042,9 +1138,9 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
       ctx.beginPath();
       const treeX = 180 - (dist * 0.15) % 1000;
       ctx.moveTo(treeX, GROUND_Y);
-      ctx.quadraticCurveTo(treeX + 15, GROUND_Y - 80, treeX + 5, GROUND_Y - 140);
-      ctx.lineTo(treeX + 18, GROUND_Y - 140);
-      ctx.quadraticCurveTo(treeX + 25, GROUND_Y - 70, treeX + 45, GROUND_Y);
+      ctx.quadraticCurveTo(treeX + 15, GROUND_Y - 120, treeX + 5, GROUND_Y - 220); // taller tree
+      ctx.lineTo(treeX + 18, GROUND_Y - 220);
+      ctx.quadraticCurveTo(treeX + 25, GROUND_Y - 110, treeX + 45, GROUND_Y);
       ctx.closePath();
       ctx.fill();
 
@@ -1052,9 +1148,9 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
       ctx.fillStyle = '#ffb7c5';
       ctx.globalAlpha = 0.45;
       ctx.beginPath();
-      ctx.arc(treeX - 10, GROUND_Y - 148, 45, 0, Math.PI * 2);
-      ctx.arc(treeX + 25, GROUND_Y - 155, 52, 0, Math.PI * 2);
-      ctx.arc(treeX + 10, GROUND_Y - 120, 42, 0, Math.PI * 2);
+      ctx.arc(treeX - 10, GROUND_Y - 228, 65, 0, Math.PI * 2); // wider leaves
+      ctx.arc(treeX + 25, GROUND_Y - 235, 75, 0, Math.PI * 2);
+      ctx.arc(treeX + 10, GROUND_Y - 190, 60, 0, Math.PI * 2);
       ctx.fill();
       ctx.globalAlpha = 1.0;
 
@@ -1094,7 +1190,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-950 border border-slate-900/50 rounded-2xl overflow-hidden shadow-2xl relative select-none font-sans" id="game-arcade-screen">
+    <div className="flex flex-col h-full flex-1 bg-slate-950 border border-slate-900/50 rounded-2xl overflow-hidden shadow-2xl relative select-none font-sans" id="game-arcade-screen">
       {/* Top Console Bar */}
       <div className="p-2.5 sm:p-4 bg-slate-900 border-b border-slate-800 flex items-center justify-between">
         <div className="flex items-center gap-2 sm:gap-3">
@@ -1140,7 +1236,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
       </div>
 
       {/* Main Canvas Space */}
-      <div className="relative flex-1 bg-slate-950 min-h-[380px] xs:min-h-[410px] sm:min-h-[460px] md:min-h-[520px] shadow-inner flex items-center justify-center overflow-hidden" ref={containerRef}>
+      <div className="relative flex-1 bg-slate-950 min-h-[450px] xs:min-h-[490px] sm:min-h-[470px] md:min-h-[520px] shadow-inner flex items-center justify-center overflow-hidden" ref={containerRef}>
         <canvas
           ref={canvasRef}
           className="block w-full max-w-full cursor-pointer touch-none bg-slate-950 border-b border-slate-900"
@@ -1258,8 +1354,8 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
                       : 'bg-slate-900/65 border-slate-800 hover:border-slate-700 text-slate-400'
                   }`}
                 >
-                  <span className="text-3xl sm:text-4xl mb-1.5 sm:mb-2.5">🍙</span>
-                  <span className="text-xs sm:text-sm font-black">Temaki Ronin</span>
+                  <span className="text-3xl sm:text-4xl mb-1.5 sm:mb-2.5">👩‍🍳</span>
+                  <span className="text-xs sm:text-sm font-black">Sushiwoman Sara</span>
                   <span className="text-[10px] sm:text-xs text-slate-500 mt-1 leading-tight hidden xs:block">Salto duplo!</span>
                 </button>
               </div>
