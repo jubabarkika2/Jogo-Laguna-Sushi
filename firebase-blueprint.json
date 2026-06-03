@@ -1,0 +1,34 @@
+{
+  "entities": {
+    "HighScore": {
+      "title": "HighScore",
+      "description": "High score entries in the leaderboard",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Name of the player"
+        },
+        "score": {
+          "type": "integer",
+          "description": "Score achieved by the player"
+        },
+        "date": {
+          "type": "string",
+          "description": "Date in DD/MM/YYYY format"
+        },
+        "isOrderCourier": {
+          "type": "boolean",
+          "description": "Whether the player is the delivery courier"
+        }
+      },
+      "required": ["name", "score", "date"]
+    }
+  },
+  "firestore": {
+    "/highscores/{scoreId}": {
+      "schema": "HighScore",
+      "description": "Collection of global high scores"
+    }
+  }
+}

@@ -1,0 +1,6 @@
+{
+  "name": "LAGUNA SUSHI - O Jogo do Delivery",
+  "description": "Um divertido jogo de plataforma estilo Mario para os clientes jogarem enquanto esperam o sushi chegar, com rastreador de pedido integrado!",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
