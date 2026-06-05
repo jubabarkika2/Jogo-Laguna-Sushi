@@ -285,27 +285,38 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
     setMuted(isMuted);
   };
 
-  // Resize canvas responsively
+  // Resize canvas responsively using ResizeObserver to handle container layout changes flawlessly
   useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
     const updateCanvasSize = () => {
       const canvas = canvasRef.current;
-      const container = containerRef.current;
-      if (!canvas || !container) return;
+      const containerEl = containerRef.current;
+      if (!canvas || !containerEl) return;
 
-      const rect = container.getBoundingClientRect();
+      const rect = containerEl.getBoundingClientRect();
       canvas.width = rect.width;
       
       if (rect.width < 640) {
         // Stretch canvas to occupy full available vertical height of the container on mobile
-        canvas.height = rect.height || 450;
+        canvas.height = rect.height || 480;
       } else {
         canvas.height = Math.min(rect.width * 0.5, 420); // Maintain 2:1 aspect ratio or caps at 420
       }
     };
 
+    // Run initial sizing
     updateCanvasSize();
-    window.addEventListener('resize', updateCanvasSize);
-    return () => window.removeEventListener('resize', updateCanvasSize);
+
+    const resizeObserver = new ResizeObserver(() => {
+      updateCanvasSize();
+    });
+    resizeObserver.observe(container);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
   }, []);
 
   // Event Listeners for Controls
