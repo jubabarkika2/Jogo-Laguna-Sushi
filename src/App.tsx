@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { OrderInfo, OrderStatus } from './types';
 import SushiGame from './components/SushiGame';
+import SushiLogo from './components/SushiLogo';
 import { soundManager } from './utils/sound';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -58,9 +59,7 @@ export default function App() {
           
           {/* Logo Brand with custom Japanese elements */}
           <div className="flex items-center gap-1.5 sm:gap-3">
-            <div className="w-7 h-7 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-tr from-salmon-500 via-rose-500 to-amber-500 flex items-center justify-center text-lg sm:text-2xl shadow-lg shadow-salmon-500/10 shrink-0">
-              🍣
-            </div>
+            <SushiLogo size={44} className="w-8 h-8 sm:w-[44px] sm:h-[44px] shrink-0 drop-shadow-md" />
             <div>
               <h1 className="text-xs sm:text-base font-black tracking-tight text-white flex items-center gap-1 uppercase">
                 LAGUNA SUSHI <span className="text-[9px] sm:text-[10px] bg-salmon-500/20 text-salmon-400 font-mono font-bold px-1 py-0.5 rounded border border-salmon-500/35 leading-none shrink-0 hidden xs:inline-block">DELIVERY</span>

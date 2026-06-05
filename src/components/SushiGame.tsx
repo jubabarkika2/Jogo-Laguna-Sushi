@@ -84,11 +84,11 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
   const graceTicksRef = useRef(300);
 
   const getLevelIndex = (score: number): number => {
-    if (score < 400) return 0;
-    if (score < 600) return 1;
-    if (score < 850) return 2;
-    if (score < 1001) return 3;
-    if (score < 1400) return 4;
+    if (score < 500) return 0;
+    if (score < 1000) return 1;
+    if (score < 1500) return 2;
+    if (score < 2000) return 3;
+    if (score < 2500) return 4;
     return 5;
   };
 
@@ -100,7 +100,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
   const getThemeColors = (score = gameScoreRef.current) => {
     const levelIndex = getLevelIndex(score);
     switch (levelIndex) {
-      case 0: // Level 1 (0-399)
+      case 0: // Level 1 (0-499)
         return {
           bgGradStart: '#1e112a', // Kitchen Tatami / warm Purple night
           bgGradEnd: '#0b0610',
@@ -108,7 +108,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
           accentColor: '#ffa07a', // Salmon
           name: '1. Cozinha Ryotei 🍙'
         };
-      case 1: // Level 2 (400-599)
+      case 1: // Level 2 (500-999)
         return {
           bgGradStart: '#4fc3f7', // Beautiful light sky blue
           bgGradEnd: '#b3e5fc',   // Gentle morning light
@@ -116,7 +116,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
           accentColor: '#ff9800', // Daylight sun orange
           name: '2. Cidade de Dia ☀️'
         };
-      case 2: // Level 3 (600-849)
+      case 2: // Level 3 (1000-1499)
         return {
           bgGradStart: '#4a607a', // Overcast dark blue/grey daytime sky
           bgGradEnd: '#90a4ae',   // Pale rainy horizon light
@@ -124,7 +124,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
           accentColor: '#80d8ff', // Sky blue rainy glow
           name: '3. Chuva na Cidade 🌧️'
         };
-      case 3: // Level 4 (850-1000)
+      case 3: // Level 4 (1500-1999)
         return {
           bgGradStart: '#04020f', // Deep infinite outer space black
           bgGradEnd: '#140c28',   // Glowing cosmos purple/violet sky
@@ -132,7 +132,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
           accentColor: '#e040fb', // Stellar neon magenta glow
           name: '4. Espaço Sideral 🌌'
         };
-      case 4: // Level 5 (1001-1399)
+      case 4: // Level 5 (2000-2499)
         return {
           bgGradStart: '#020d1a', // Abyssal zone darkest blue
           bgGradEnd: '#082545',   // Deep ocean teal-blue
@@ -140,7 +140,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
           accentColor: '#00e5ff', // Luminescent cyan/turquoise glow
           name: '5. Fundo do Mar 🌊'
         };
-      case 5: // Level 6 (1400+)
+      case 5: // Level 6 (2500+)
         return {
           bgGradStart: '#0f2027', // Snowy Glacier Blue
           bgGradEnd: '#203a43',
@@ -180,7 +180,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
     if (gameState === 'playing') {
       const currentLevel = getLevelFromScore(gameScore);
       if (currentLevel > lastLevelRef.current) {
-        // Trigger 3D banner if transitioning from Level 1 to Level 2, or Level 2 to Level 3
+        // Trigger 3D banner if transitioning stages
         if (lastLevelRef.current === 1 && currentLevel === 2) {
           setTransitionPhase(2);
           setShowPhaseTransitionBanner(true);
@@ -195,6 +195,10 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
           soundManager.playVictory();
         } else if (lastLevelRef.current === 4 && currentLevel === 5) {
           setTransitionPhase(5);
+          setShowPhaseTransitionBanner(true);
+          soundManager.playVictory();
+        } else if (lastLevelRef.current === 5 && currentLevel === 6) {
+          setTransitionPhase(6);
           setShowPhaseTransitionBanner(true);
           soundManager.playVictory();
         } else {
@@ -842,6 +846,13 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
     // 3. Draw obstacles
     obstaclesRef.current.forEach(obs => {
       ctx.save();
+      // Scale obstacles up by 20% centered on their middle coordinate
+      const centerX = obs.x + obs.width / 2;
+      const centerY = obs.y + obs.height / 2;
+      ctx.translate(centerX, centerY);
+      ctx.scale(1.2, 1.2);
+      ctx.translate(-centerX, -centerY);
+
       const currentLevelIdx = getLevelIndex(gameScoreRef.current);
 
       if (obs.type === 'wasabi') {
@@ -1150,6 +1161,13 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
       const wave = Math.sin(col.pulse) * 3;
       const yOffset = col.y + wave;
 
+      // Scale collectibles up by 20% centered on their middle coordinate
+      const centerX = col.x + col.width / 2;
+      const centerY = yOffset + col.height / 2;
+      ctx.translate(centerX, centerY);
+      ctx.scale(1.2, 1.2);
+      ctx.translate(-centerX, -centerY);
+
       // Pulse circular halo glow
       ctx.fillStyle = col.type === 'soy_sauce' ? 'rgba(255, 215, 0, 0.15)' : 'rgba(250, 128, 114, 0.15)';
       ctx.beginPath();
@@ -1279,7 +1297,11 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
     const isSpaceLevel = getLevelIndex(gameScoreRef.current) === 3;
     const isOceanLevel = getLevelIndex(gameScoreRef.current) === 4;
 
-    ctx.translate(p.x + p.width / 2, p.y + p.height / 2);
+    // Translate to the bottom-center of the player, scale 20% larger, and translate to center
+    // this ensures that the player character's feet contact the ground line perfectly!
+    ctx.translate(p.x + p.width / 2, p.y + p.height);
+    ctx.scale(1.2, 1.2);
+    ctx.translate(0, -p.height / 2);
     ctx.rotate(p.rotation);
 
     if (p.isSliding && !isSpaceLevel) {
@@ -2497,6 +2519,21 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
       bannerBtnStyle = 'from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-slate-950 border-cyan-800';
       bannerBtnId = 'start-phase5-button';
       bannerBtnText = 'INICIAR FASE 5 (FUNDO DO MAR) ➡️';
+    } else if (transitionPhase === 6) {
+      bannerGlow = 'from-sky-400 to-blue-400';
+      bannerIcon = '🏔️';
+      bannerIconBg = 'from-sky-200 to-sky-400 shadow-sky-300/35 border-white/40';
+      bannerIconRotate = [0, 5, -5, 0];
+      bannerTag = '❄️ ESCALADOR LENDÁRIO';
+      bannerTagColor = 'text-sky-300 border-sky-300/35';
+      bannerTitle = 'Fase 5 Concluída!';
+      bannerSub = 'Você emergiu com sucesso das profundezas do mar! Agora você deve escalar até o topo do lendário Pico Fuji congelado...';
+      bannerNextStyle = 'bg-sky-500/10 border-sky-400/20';
+      bannerNextLine = '🏔️ PICO FUJI GELADO ❄️';
+      bannerNextDesc = 'Enfrente ventos glaciais violentos, caminhos de gelo escorregadios e obstáculos congelantes!';
+      bannerBtnStyle = 'from-sky-300 to-sky-500 hover:from-sky-500 hover:to-sky-600 text-slate-950 border-sky-700';
+      bannerBtnId = 'start-phase6-button';
+      bannerBtnText = 'INICIAR FASE 6 (PICO FUJI) ➡️';
     }
 
     return {
