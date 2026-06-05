@@ -53,12 +53,12 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
   // Physics & Game Constants
   const BASE_WIDTH = 800;
   const BASE_HEIGHT = 400;
-  const GROUND_Y = 320;
+  const GROUND_Y = 360;
 
   // Player state variables
   const playerRef = useRef({
     x: 100,
-    y: GROUND_Y - 50,
+    y: GROUND_Y - 48,
     width: 48,
     height: 48,
     vy: 0,
