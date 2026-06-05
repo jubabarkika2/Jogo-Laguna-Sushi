@@ -2727,36 +2727,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
           onTouchCancel={handleCanvasPressEnd}
         />
 
-        {/* On-screen touch controls for Android and mobile devices */}
-        {gameState === 'playing' && isTouchDevice && (
-          <div className="absolute inset-x-0 bottom-4 px-4 flex justify-between items-center z-30 pointer-events-none">
-            {/* Slide Button */}
-            <button
-              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); triggerSlide(true); }}
-              onMouseUp={(e) => { e.preventDefault(); e.stopPropagation(); triggerSlide(false); }}
-              onMouseLeave={(e) => { e.preventDefault(); e.stopPropagation(); triggerSlide(false); }}
-              onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); triggerSlide(true); }}
-              onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); triggerSlide(false); }}
-              onTouchCancel={(e) => { e.preventDefault(); e.stopPropagation(); triggerSlide(false); }}
-              className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-900/80 hover:bg-slate-800 border-2 border-slate-700/50 active:bg-slate-700 active:scale-95 text-white rounded-full flex flex-col items-center justify-center shadow-lg pointer-events-auto touch-none select-none transition-transform"
-              title="Abaixar / Deslizar"
-            >
-              <span className="text-xl sm:text-2xl">⬇️</span>
-              <span className="text-[9px] font-mono font-black tracking-tight mt-0.5">DESLIZAR</span>
-            </button>
 
-            {/* Jump Button */}
-            <button
-              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); triggerJump(); }}
-              onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); triggerJump(); }}
-              className="w-16 h-16 sm:w-20 sm:h-20 bg-salmon-500/80 hover:bg-salmon-400 border-2 border-salmon-400/50 active:bg-salmon-600 active:scale-95 text-slate-950 rounded-full flex flex-col items-center justify-center shadow-lg shadow-salmon-500/20 pointer-events-auto touch-none select-none transition-transform"
-              title="Pular"
-            >
-              <span className="text-xl sm:text-2xl">⬆️</span>
-              <span className="text-[9px] font-mono font-black tracking-tight mt-0.5">PULAR</span>
-            </button>
-          </div>
-        )}
 
         {/* Level Up Notification Banner */}
         <AnimatePresence>
