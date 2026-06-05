@@ -34,11 +34,23 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
   const [levelNotification, setLevelNotification] = useState<string | null>(null);
   const [showPhaseTransitionBanner, setShowPhaseTransitionBanner] = useState(false);
   const [transitionPhase, setTransitionPhase] = useState<number>(2);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
   const isPhaseTransitionOpenRef = useRef(false);
 
   useEffect(() => {
     isPhaseTransitionOpenRef.current = showPhaseTransitionBanner;
   }, [showPhaseTransitionBanner]);
+
+  useEffect(() => {
+    // Detect touch capability or small screens where virtual buttons are essential
+    const checkTouch = () => {
+      const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || window.innerWidth < 1024;
+      setIsTouchDevice(isTouch);
+    };
+    checkTouch();
+    window.addEventListener('resize', checkTouch);
+    return () => window.removeEventListener('resize', checkTouch);
+  }, []);
 
   // References for Animation & Loops
   const gameStateRef = useRef<GameState>('menu');
@@ -304,8 +316,8 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
       canvas.width = rect.width;
       
       if (rect.width < 640) {
-        // Stretch canvas to occupy full available vertical height of the container on mobile
-        canvas.height = rect.height || 480;
+        // Use a stable, deterministic aspect ratio on mobile to prevent infinite layout loops that crash GPU memory (turning the game black and pushing content down).
+        canvas.height = Math.min(rect.width * 0.6, 360);
       } else {
         canvas.height = Math.min(rect.width * 0.5, 420); // Maintain 2:1 aspect ratio or caps at 420
       }
@@ -2714,6 +2726,37 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
           onTouchEnd={handleCanvasPressEnd}
           onTouchCancel={handleCanvasPressEnd}
         />
+
+        {/* On-screen touch controls for Android and mobile devices */}
+        {gameState === 'playing' && isTouchDevice && (
+          <div className="absolute inset-x-0 bottom-4 px-4 flex justify-between items-center z-30 pointer-events-none">
+            {/* Slide Button */}
+            <button
+              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); triggerSlide(true); }}
+              onMouseUp={(e) => { e.preventDefault(); e.stopPropagation(); triggerSlide(false); }}
+              onMouseLeave={(e) => { e.preventDefault(); e.stopPropagation(); triggerSlide(false); }}
+              onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); triggerSlide(true); }}
+              onTouchEnd={(e) => { e.preventDefault(); e.stopPropagation(); triggerSlide(false); }}
+              onTouchCancel={(e) => { e.preventDefault(); e.stopPropagation(); triggerSlide(false); }}
+              className="w-16 h-16 sm:w-20 sm:h-20 bg-slate-900/80 hover:bg-slate-800 border-2 border-slate-700/50 active:bg-slate-700 active:scale-95 text-white rounded-full flex flex-col items-center justify-center shadow-lg pointer-events-auto touch-none select-none transition-transform"
+              title="Abaixar / Deslizar"
+            >
+              <span className="text-xl sm:text-2xl">⬇️</span>
+              <span className="text-[9px] font-mono font-black tracking-tight mt-0.5">DESLIZAR</span>
+            </button>
+
+            {/* Jump Button */}
+            <button
+              onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); triggerJump(); }}
+              onTouchStart={(e) => { e.preventDefault(); e.stopPropagation(); triggerJump(); }}
+              className="w-16 h-16 sm:w-20 sm:h-20 bg-salmon-500/80 hover:bg-salmon-400 border-2 border-salmon-400/50 active:bg-salmon-600 active:scale-95 text-slate-950 rounded-full flex flex-col items-center justify-center shadow-lg shadow-salmon-500/20 pointer-events-auto touch-none select-none transition-transform"
+              title="Pular"
+            >
+              <span className="text-xl sm:text-2xl">⬆️</span>
+              <span className="text-[9px] font-mono font-black tracking-tight mt-0.5">PULAR</span>
+            </button>
+          </div>
+        )}
 
         {/* Level Up Notification Banner */}
         <AnimatePresence>
