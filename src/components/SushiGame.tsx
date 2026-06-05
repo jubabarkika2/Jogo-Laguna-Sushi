@@ -296,10 +296,8 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
       canvas.width = rect.width;
       
       if (rect.width < 640) {
-        // Maintain a perfect 3:1 sky-to-ground proportion on mobile (virtual height of 480)
-        // Sky height (to GROUND_Y) is 360, ground height is 120. Ratio is 360/120 = 3
-        const scale = rect.width / BASE_WIDTH;
-        canvas.height = 480 * scale;
+        // Stretch canvas to occupy full available vertical height of the container on mobile
+        canvas.height = rect.height || 450;
       } else {
         canvas.height = Math.min(rect.width * 0.5, 420); // Maintain 2:1 aspect ratio or caps at 420
       }
@@ -787,11 +785,21 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     ctx.save();
-    // Scale everything relative to base resolution
-    const scale = canvas.width / BASE_WIDTH;
-    ctx.scale(scale, scale);
-
-    const virtualHeight = canvas.height / scale;
+    
+    let virtualHeight = 400;
+    if (canvas.width < 640) {
+      // On mobile, scale horizontally and vertically so that the game occupies the entire canvas
+      // while keeping a virtual resolution of 800x480 (meaning GROUND_Y at 360 is exactly 3:1 sky-to-ground ratio)
+      const scaleX = canvas.width / BASE_WIDTH;
+      const scaleY = canvas.height / 480;
+      ctx.scale(scaleX, scaleY);
+      virtualHeight = 480;
+    } else {
+      // Desktop: Maintain uniform scaling
+      const scale = canvas.width / BASE_WIDTH;
+      ctx.scale(scale, scale);
+      virtualHeight = canvas.height / scale;
+    }
 
     // 1. Draw Environmental Beautiful Background Gradient linking to status
     const tCol = getThemeColors();
