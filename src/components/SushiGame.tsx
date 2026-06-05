@@ -799,7 +799,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
     // while maintaining perfectly uniform scaling for gameplay objects so they never skew or distort!
     const scaleX = canvas.width / BASE_WIDTH;
     const targetScaleY = canvas.height / 480;
-    const scaleY = canvas.width < 640 ? (scaleX + 0.8 * (targetScaleY - scaleX)) : scaleX;
+    const scaleY = canvas.width < 640 ? (scaleX + 0.7 * (targetScaleY - scaleX)) : scaleX;
     const bgVirtualHeight = canvas.height / scaleY;
 
     ctx.save();
