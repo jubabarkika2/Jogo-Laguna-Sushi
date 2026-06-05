@@ -795,37 +795,29 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
     // Clear Canvas and stretch base resolution
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // Stretch ONLY the background on mobile to occupy the full landscape/portrait container correctly,
+    // while maintaining perfectly uniform scaling for gameplay objects so they never skew or distort!
+    const scaleX = canvas.width / BASE_WIDTH;
+    const scaleY = canvas.width < 640 ? (canvas.height / 480) : scaleX;
+    const bgVirtualHeight = canvas.width < 640 ? 480 : (canvas.height / scaleX);
+
     ctx.save();
-    
-    let virtualHeight = 400;
-    if (canvas.width < 640) {
-      // On mobile, scale horizontally and vertically so that the game occupies the entire canvas
-      // while keeping a virtual resolution of 800x480 (meaning GROUND_Y at 360 is exactly 3:1 sky-to-ground ratio)
-      const scaleX = canvas.width / BASE_WIDTH;
-      const scaleY = canvas.height / 480;
-      ctx.scale(scaleX, scaleY);
-      virtualHeight = 480;
-    } else {
-      // Desktop: Maintain uniform scaling
-      const scale = canvas.width / BASE_WIDTH;
-      ctx.scale(scale, scale);
-      virtualHeight = canvas.height / scale;
-    }
+    ctx.scale(scaleX, scaleY);
 
     // 1. Draw Environmental Beautiful Background Gradient linking to status
     const tCol = getThemeColors();
-    const grad = ctx.createLinearGradient(0, 0, 0, virtualHeight);
+    const grad = ctx.createLinearGradient(0, 0, 0, bgVirtualHeight);
     grad.addColorStop(0, tCol.bgGradStart);
     grad.addColorStop(1, tCol.bgGradEnd);
     ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, BASE_WIDTH, virtualHeight);
+    ctx.fillRect(0, 0, BASE_WIDTH, bgVirtualHeight);
 
     // Draw Parallax decorative assets based on level theme
     drawParallaxDecorations(ctx);
 
     // 2. Draw ground platform
     ctx.fillStyle = tCol.groundColor;
-    ctx.fillRect(0, GROUND_Y, BASE_WIDTH, virtualHeight - GROUND_Y);
+    ctx.fillRect(0, GROUND_Y, BASE_WIDTH, bgVirtualHeight - GROUND_Y);
     // Draw neon lining on ground edge
     ctx.strokeStyle = tCol.accentColor;
     ctx.lineWidth = 3;
@@ -833,6 +825,18 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
     ctx.moveTo(0, GROUND_Y);
     ctx.lineTo(BASE_WIDTH, GROUND_Y);
     ctx.stroke();
+
+    ctx.restore();
+
+    // Now drawing gameplay objects using perfectly uniform scaling (prevents skewing or stretching!)
+    ctx.save();
+    const scale = scaleX;
+    ctx.scale(scale, scale);
+    const virtualHeight = canvas.height / scale;
+
+    // Shift coordinates vertically so they sit precisely on the stretched ground line
+    const virtualDiff = (GROUND_Y * scaleY) / scale - GROUND_Y;
+    ctx.translate(0, virtualDiff);
 
     // 3. Draw obstacles
     obstaclesRef.current.forEach(obs => {
@@ -1890,7 +1894,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
     if (graceTicksRef.current > 0) {
       // 1. Subtle dark focus veneer
       ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
-      ctx.fillRect(0, 0, BASE_WIDTH, virtualHeight);
+      ctx.fillRect(0, -virtualDiff, BASE_WIDTH, virtualHeight);
 
       // 2. Tapping hand animation logic
       const now = Date.now();
