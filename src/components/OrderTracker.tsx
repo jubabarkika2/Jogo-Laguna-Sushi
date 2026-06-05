@@ -106,7 +106,7 @@ export default function OrderTracker({ order, setOrder, onAdvanceStatus, gameSco
       } else if (prompt.includes('wasabi') || prompt.includes('gengibre') || prompt.includes('shoyu')) {
         replyText = 'Adicionamos sachês adicionais de shoyu premium, gengibre fatiado doce artesanal e aquela porção caprichada de wasabi forte! 🥢🔥';
       } else if (prompt.includes('cupom') || prompt.includes('desconto')) {
-        replyText = 'Sabia que se você coletar pelo menos 80 pontos no Jogo do Sushi você ganha um cupom de 5% OFF de verdade no próximo pedido? Jogue para vencer! 🎟️✨';
+        replyText = 'Adoraria poder oferecer cupons adicionais agora, mas nosso foco agora é a corrida de sushi! Divirta-se jogando e veja até qual fase você consegue chegar! 🥢✨';
       } else if (prompt.includes('bebida') || prompt.includes('refrigerante') || prompt.includes('coca')) {
         replyText = 'A bebida está acondicionada no compartimento isolado e ultra-gelado da mochila do motoboy! Vai chegar trincando! 🥤❄️';
       } else if (prompt.includes('obrigado') || prompt.includes('valeu') || prompt.includes('obrigada')) {

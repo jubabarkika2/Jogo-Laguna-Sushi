@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import { OrderInfo, OrderStatus } from './types';
 import SushiGame from './components/SushiGame';
-import CouponModal from './components/CouponModal';
 import { soundManager } from './utils/sound';
-import { Gift } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function App() {
@@ -21,16 +19,10 @@ export default function App() {
   });
 
   const [gameScore, setGameScore] = useState(0);
-  const [isCouponModalOpen, setIsCouponModalOpen] = useState(false);
-  const [hasUnlockedCoupon, setHasUnlockedCoupon] = useState(false);
 
-  // Triggered when client crosses 200 pts target
+  // Triggered when client crosses milestone targets
   const handleMilestoneReached = (score: number) => {
-    if (!hasUnlockedCoupon) {
-      setHasUnlockedCoupon(true);
-      setIsCouponModalOpen(true);
-      soundManager.playVictory();
-    }
+    // Does nothing now that coupons are removed
   };
 
   const handleAdvanceStatus = (nextStatus: OrderStatus) => {
@@ -73,7 +65,7 @@ export default function App() {
               <h1 className="text-xs sm:text-base font-black tracking-tight text-white flex items-center gap-1 uppercase">
                 LAGUNA SUSHI <span className="text-[9px] sm:text-[10px] bg-salmon-500/20 text-salmon-400 font-mono font-bold px-1 py-0.5 rounded border border-salmon-500/35 leading-none shrink-0 hidden xs:inline-block">DELIVERY</span>
               </h1>
-              <p className="text-[10px] sm:text-[11px] text-slate-400 leading-tight hidden xs:block">Jogue e ganhe descontos reais!</p>
+              <p className="text-[10px] sm:text-[11px] text-slate-400 leading-tight hidden xs:block">Desvie dos obstáculos e avance pelas fases!</p>
             </div>
           </div>
 
@@ -83,28 +75,13 @@ export default function App() {
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
               <span className="text-slate-300 font-medium font-mono">STATUS DO JOGADOR:</span>
               <span className="font-bold text-amber-400 font-mono">
-                {gameScore >= 200 ? '⚔️ SAMURAI DO SUSHI ⚔️' : '🥋 APRENDIZ 🥋'}
+                {gameScore >= 300 ? '⚔️ SAMURAI DO SUSHI ⚔️' : '🥋 APRENDIZ 🥋'}
               </span>
             </div>
           </div>
 
           {/* Right Navigation / Rewards Access panel */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-            <AnimatePresence>
-              {hasUnlockedCoupon && (
-                <motion.button
-                  initial={{ scale: 0.8, opacity: 0 }}
-                  animate={{ scale: [1, 1.05, 1], opacity: 1 }}
-                  transition={{ repeat: Infinity, repeatDelay: 4, duration: 0.8 }}
-                  onClick={() => setIsCouponModalOpen(true)}
-                  id="coupon-indicator-btn"
-                  className="bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-slate-950 font-black text-[9px] xs:text-[10px] sm:text-[11px] px-1.5 py-1 xs:px-2.5 xs:py-1.5 sm:px-3 sm:py-2 rounded-lg sm:rounded-xl flex items-center gap-1 shadow-md shadow-amber-500/15 cursor-pointer border border-yellow-400/30"
-                >
-                  <Gift className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-slate-950 animate-bounce" />
-                  <span className="hidden xs:inline">CUPOM</span> <span>5% OFF!</span>
-                </motion.button>
-              )}
-            </AnimatePresence>
 
             <div className="flex gap-1 items-center bg-slate-950 px-1.5 py-1 xs:px-2 xs:py-1.5 sm:px-2.5 sm:py-1.5 rounded-lg sm:rounded-xl border border-slate-800 font-mono text-[9px] xs:text-[10px] sm:text-[11px] text-slate-400 shrink-0">
               <span className="hidden xs:inline text-slate-400">Espera:</span>
@@ -134,15 +111,6 @@ export default function App() {
           <span>🎎 Jogo do Laguna Sushi Delivery @2026</span>
         </p>
       </footer>
-
-      {/* Coupon Modal triggered on victories */}
-      <CouponModal
-        isOpen={isCouponModalOpen}
-        onClose={() => setIsCouponModalOpen(false)}
-        couponCode="SUSHI_GAMER_5"
-        discountValue="5% OFF"
-        score={gameScore}
-      />
       
     </div>
   );

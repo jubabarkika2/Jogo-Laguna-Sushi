@@ -30,6 +30,13 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
   ]);
   const [showInstructions, setShowInstructions] = useState(false);
   const [playerName, setPlayerName] = useState('Seu Nome');
+  const [levelNotification, setLevelNotification] = useState<string | null>(null);
+  const [showPhaseTransitionBanner, setShowPhaseTransitionBanner] = useState(false);
+  const isPhaseTransitionOpenRef = useRef(false);
+
+  useEffect(() => {
+    isPhaseTransitionOpenRef.current = showPhaseTransitionBanner;
+  }, [showPhaseTransitionBanner]);
 
   // References for Animation & Loops
   const gameStateRef = useRef<GameState>('menu');
@@ -37,6 +44,11 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
   const obstaclesRef = useRef<GameObstacle[]>([]);
   const collectiblesRef = useRef<GameCollectible[]>([]);
   const particlesRef = useRef<GameParticle[]>([]);
+
+  const gameScoreRef = useRef(gameScore);
+  
+  // Synchronize gameScore value immediately during render phase to keep animation loops fresh
+  gameScoreRef.current = gameScore;
 
   // Physics & Game Constants
   const BASE_WIDTH = 800;
@@ -67,36 +79,56 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
   const collectibleTimerRef = useRef(0);
 
   // Background environments linking to OrderStatus
-  const getThemeColors = () => {
-    switch (order.status) {
-      case 'received':
-      case 'preparing':
+  const getThemeColors = (score = gameScoreRef.current) => {
+    const levelIndex = Math.floor(score / 300) % 5;
+    switch (levelIndex) {
+      case 0: // Level 1 (0-299)
         return {
           bgGradStart: '#1e112a', // Kitchen Tatami / warm Purple night
           bgGradEnd: '#0b0610',
           groundColor: '#421a10', // Bamboo brown board
-          accentColor: '#ffa07a' // Salmon
+          accentColor: '#ffa07a', // Salmon
+          name: '1. Cozinha Ryotei 🍙'
         };
-      case 'dispatched':
+      case 1: // Level 2 (300-599)
         return {
-          bgGradStart: '#08142c', // Neon Tokyo City Dark Blue
-          bgGradEnd: '#02050c',
-          groundColor: '#1c2438', // Asphalt street slate
-          accentColor: '#00ffff' // Cyan neon
+          bgGradStart: '#4fc3f7', // Beautiful light sky blue
+          bgGradEnd: '#b3e5fc',   // Gentle morning light
+          groundColor: '#607d8b', // Slate grey asphalt
+          accentColor: '#ff9800', // Daylight sun orange
+          name: '2. Cidade de Dia ☀️'
         };
-      case 'delivered':
+      case 2: // Level 3 (600-899)
         return {
           bgGradStart: '#021e17', // Japanese Garden / soft Green sunset
           bgGradEnd: '#010907',
-          groundColor: '#073a25', // Raining moss grass
-          accentColor: '#ffb7c5' // Sakura pink
+          groundColor: '#2b1a13', // Soft wooden path
+          accentColor: '#ffb7c5', // Sakura pink glow
+          name: '3. Jardim Sagrado 🌸'
+        };
+      case 3: // Level 4 (900-1199)
+        return {
+          bgGradStart: '#2d0909', // Cyber Dojo Crimson Dark
+          bgGradEnd: '#0c0202',
+          groundColor: '#1a1a1a', // Cyber obsidian floor
+          accentColor: '#ff2d55', // Red cyber neon
+          name: '4. Templo Cyber-Dojo ⛩️'
+        };
+      case 4: // Level 5 (1200+)
+        return {
+          bgGradStart: '#0f2027', // Snowy Glacier Blue
+          bgGradEnd: '#203a43',
+          groundColor: '#eceff1', // Ice snow floor
+          accentColor: '#33b5e5', // Frozen icy cyan
+          name: '5. Pico Fuji Gelado 🏔️'
         };
       default:
         return {
           bgGradStart: '#111827',
           bgGradEnd: '#030712',
           groundColor: '#1f2937',
-          accentColor: '#ff6b6b'
+          accentColor: '#ff6b6b',
+          name: '1. Cozinha Ryotei 🍙'
         };
     }
   };
@@ -105,6 +137,61 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
   useEffect(() => {
     gameStateRef.current = gameState;
   }, [gameState]);
+
+  // Score base levels observer to play sound milestone and update phase state notifications
+  const lastLevelRef = useRef(1);
+  const levelTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (levelTimerRef.current) {
+        clearTimeout(levelTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (gameState === 'playing') {
+      const currentLevel = Math.floor(gameScore / 300) + 1;
+      if (currentLevel > lastLevelRef.current) {
+        // Trigger 3D banner if transitioning from Level 1 to Level 2
+        if (lastLevelRef.current === 1 && currentLevel === 2) {
+          setShowPhaseTransitionBanner(true);
+          soundManager.playVictory();
+        } else {
+          soundManager.playScoreMilestone();
+        }
+
+        lastLevelRef.current = currentLevel;
+        
+        const levelNames = [
+          'Cozinha Ryotei 🍙',
+          'Cidade de Dia ☀️',
+          'Jardim Sagrado 🌸',
+          'Templo Cyber-Dojo ⛩️',
+          'Pico Fuji Gelado 🏔️'
+        ];
+        const nextName = levelNames[(currentLevel - 1) % 5];
+        setLevelNotification(`FASE ${currentLevel}!\n${nextName}`);
+
+        if (levelTimerRef.current) {
+          clearTimeout(levelTimerRef.current);
+        }
+        levelTimerRef.current = setTimeout(() => {
+          setLevelNotification(null);
+          levelTimerRef.current = null;
+        }, 2200);
+      }
+    } else if (gameState === 'menu' || gameState === 'character_select') {
+      lastLevelRef.current = 1;
+      setLevelNotification(null);
+      setShowPhaseTransitionBanner(false);
+      if (levelTimerRef.current) {
+        clearTimeout(levelTimerRef.current);
+        levelTimerRef.current = null;
+      }
+    }
+  }, [gameScore, gameState]);
 
   // Load High scores from database with localstorage as fallback setup
   useEffect(() => {
@@ -314,8 +401,10 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
   const gameLoop = (time: number) => {
     if (gameStateRef.current !== 'playing') return;
 
-    updatePhysics();
-    updateSpawners();
+    if (!isPhaseTransitionOpenRef.current) {
+      updatePhysics();
+      updateSpawners();
+    }
     drawGameOffscreen();
 
     frameIdRef.current = requestAnimationFrame(gameLoop);
@@ -353,8 +442,9 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
       p.invulnerableFrames--;
     }
 
-    // 2. Adjust Difficulty speed based on overall score / progress
-    speedScaleRef.current = 1.0 + Math.min(gameScore * 0.005, 0.8);
+    // 2. Adjust Difficulty speed based on overall score / progress phase (completely stable within each phase)
+    const currentPhase = Math.floor(gameScoreRef.current / 300);
+    speedScaleRef.current = 1.0 + Math.min(currentPhase * 0.15, 0.60);
 
     // 3. Update obstacles
     obstaclesRef.current.forEach(obs => {
@@ -444,14 +534,28 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
     obstacleTimerRef.current++;
     collectibleTimerRef.current++;
 
-    // Spawn obstacles dynamically with random interval pacing
-    const baseSpawnRate = 120 - Math.min(gameScore * 0.4, 45);
+    // Spawn obstacles dynamically with completely stable interval pacing within each phase
+    const currentPhase = Math.floor(gameScoreRef.current / 300);
+    const baseSpawnRate = Math.max(120 - currentPhase * 12, 75);
     if (obstacleTimerRef.current >= baseSpawnRate + (Math.random() * 50 - 25)) {
       obstacleTimerRef.current = 0;
 
-      // Choose obstacle types
-      const types: ('wasabi' | 'chopsticks' | 'cone' | 'pothole')[] = ['wasabi', 'chopsticks', 'cone', 'pothole'];
-      const randType = types[Math.floor(Math.random() * types.length)];
+      // Choose obstacle types based on current score-based level
+      const lenIdx = Math.floor(gameScoreRef.current / 300) % 5;
+      let availableTypes: ('wasabi' | 'chopsticks' | 'cone' | 'pothole')[];
+      if (lenIdx === 0) {
+        availableTypes = ['wasabi', 'chopsticks'];
+      } else if (lenIdx === 1) {
+        availableTypes = ['cone', 'pothole'];
+      } else if (lenIdx === 2) {
+        availableTypes = ['wasabi', 'chopsticks'];
+      } else if (lenIdx === 3) {
+        availableTypes = ['cone', 'chopsticks'];
+      } else {
+        availableTypes = ['wasabi', 'pothole'];
+      }
+
+      const randType = availableTypes[Math.floor(Math.random() * availableTypes.length)];
 
       let height = 30;
       let width = 30;
@@ -606,73 +710,178 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
     // 3. Draw obstacles
     obstaclesRef.current.forEach(obs => {
       ctx.save();
+      const currentLevelIdx = Math.floor(gameScoreRef.current / 300) % 5;
+
       if (obs.type === 'wasabi') {
-        // Draw cute annoyed wasabi blob
-        ctx.fillStyle = '#66cd11';
-        ctx.strokeStyle = '#2e8b57';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(obs.x + obs.width / 2, obs.y);
-        ctx.quadraticCurveTo(obs.x + obs.width, obs.y + obs.height, obs.x + obs.width, obs.y + obs.height);
-        ctx.lineTo(obs.x, obs.y + obs.height);
-        ctx.quadraticCurveTo(obs.x, obs.y + obs.height, obs.x + obs.width / 2, obs.y);
-        ctx.fill();
-        ctx.stroke();
+        if (currentLevelIdx === 2) {
+          // Level 3 (Sakura Garden): Sakura Pink Blossom Wasabi Blob!
+          ctx.fillStyle = '#ffb7c5';
+          ctx.strokeStyle = '#ff69b4';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(obs.x + obs.width / 2, obs.y);
+          ctx.quadraticCurveTo(obs.x + obs.width, obs.y + obs.height, obs.x + obs.width, obs.y + obs.height);
+          ctx.lineTo(obs.x, obs.y + obs.height);
+          ctx.quadraticCurveTo(obs.x, obs.y + obs.height, obs.x + obs.width / 2, obs.y);
+          ctx.fill();
+          ctx.stroke();
 
-        // Eyes & angry eyebrows
-        ctx.fillStyle = '#111';
-        ctx.beginPath();
-        ctx.arc(obs.x + 10, obs.y + 18, 2.5, 0, Math.PI * 2);
-        ctx.arc(obs.x + 20, obs.y + 18, 2.5, 0, Math.PI * 2);
-        ctx.fill();
+          // A small sakura petal on top of wasabi
+          ctx.fillStyle = '#ff69b4';
+          ctx.beginPath();
+          ctx.ellipse(obs.x + obs.width / 2, obs.y + 2, 4, 2, Math.PI / 4, 0, Math.PI * 2);
+          ctx.fill();
 
-        ctx.strokeStyle = '#111';
-        ctx.lineWidth = 1.5;
-        // eyebrows
-        ctx.beginPath();
-        ctx.moveTo(obs.x + 6, obs.y + 12);
-        ctx.lineTo(obs.x + 12, obs.y + 15);
-        ctx.moveTo(obs.x + 24, obs.y + 12);
-        ctx.lineTo(obs.x + 18, obs.y + 15);
-        ctx.stroke();
+          // Eyes & cute happy face
+          ctx.fillStyle = '#111';
+          ctx.beginPath();
+          ctx.arc(obs.x + 10, obs.y + 18, 2, 0, Math.PI * 2);
+          ctx.arc(obs.x + 20, obs.y + 18, 2, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (currentLevelIdx === 4) {
+          // Level 5 (Fuji Peaks): Glacier blue crystal spire!
+          ctx.fillStyle = '#e0f7fa';
+          ctx.strokeStyle = '#00acc1';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(obs.x + obs.width / 2, obs.y);
+          ctx.lineTo(obs.x + obs.width, obs.y + obs.height);
+          ctx.lineTo(obs.x, obs.y + obs.height);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+
+          // Sparkles/glare lines
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(obs.x + obs.width / 2, obs.y + 2);
+          ctx.lineTo(obs.x + obs.width / 2, obs.y + obs.height - 2);
+          ctx.stroke();
+        } else {
+          // Standard Wasabi blob (Level 1, etc.)
+          ctx.fillStyle = '#66cd11';
+          ctx.strokeStyle = '#2e8b57';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(obs.x + obs.width / 2, obs.y);
+          ctx.quadraticCurveTo(obs.x + obs.width, obs.y + obs.height, obs.x + obs.width, obs.y + obs.height);
+          ctx.lineTo(obs.x, obs.y + obs.height);
+          ctx.quadraticCurveTo(obs.x, obs.y + obs.height, obs.x + obs.width / 2, obs.y);
+          ctx.fill();
+          ctx.stroke();
+
+          // Eyes & angry eyebrows
+          ctx.fillStyle = '#111';
+          ctx.beginPath();
+          ctx.arc(obs.x + 10, obs.y + 18, 2.5, 0, Math.PI * 2);
+          ctx.arc(obs.x + 20, obs.y + 18, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.strokeStyle = '#111';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.moveTo(obs.x + 6, obs.y + 12);
+          ctx.lineTo(obs.x + 12, obs.y + 15);
+          ctx.moveTo(obs.x + 24, obs.y + 12);
+          ctx.lineTo(obs.x + 18, obs.y + 15);
+          ctx.stroke();
+        }
       } else if (obs.type === 'chopsticks') {
-        // High chopsticks hurdle
-        ctx.fillStyle = '#c59b6d';
-        ctx.strokeStyle = '#5a3d21';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.roundRect(obs.x, obs.y + 4, obs.width, obs.height - 4, 3);
-        ctx.fill();
-        ctx.stroke();
-        // Chopstick accent line
-        ctx.fillStyle = '#8a0303';
-        ctx.fillRect(obs.x + obs.width - 12, obs.y + 5, 8, obs.height - 6);
+        if (currentLevelIdx === 2) {
+          // Level 3 (Sakura Garden): Green Zen Bamboo canes to slide under!
+          ctx.fillStyle = '#2e7d32';
+          ctx.strokeStyle = '#1b5e20';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.roundRect(obs.x, obs.y + 4, obs.width, obs.height - 4, 3);
+          ctx.fill();
+          ctx.stroke();
+          // Bamboo rings segments
+          ctx.fillStyle = '#81c784';
+          ctx.fillRect(obs.x + 10, obs.y + 5, 4, obs.height - 6);
+          ctx.fillRect(obs.x + 30, obs.y + 5, 4, obs.height - 6);
+        } else if (currentLevelIdx === 3) {
+          // Level 4 (Cyber Dojo): Cyber Laser beam scanner/dronish beam!
+          ctx.fillStyle = '#e91e63';
+          ctx.strokeStyle = '#ff80ab';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.roundRect(obs.x, obs.y + 4, obs.width, obs.height - 4, 2);
+          ctx.fill();
+          ctx.stroke();
+          // Laser core glow
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(obs.x + 4, obs.y + 6, obs.width - 8, obs.height - 8);
+        } else {
+          // Standard chopsticks
+          ctx.fillStyle = '#c59b6d';
+          ctx.strokeStyle = '#5a3d21';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.roundRect(obs.x, obs.y + 4, obs.width, obs.height - 4, 3);
+          ctx.fill();
+          ctx.stroke();
+          ctx.fillStyle = '#8a0303';
+          ctx.fillRect(obs.x + obs.width - 12, obs.y + 5, 8, obs.height - 6);
+        }
       } else if (obs.type === 'cone') {
-        // Orange traffic hurdle
-        ctx.fillStyle = '#ff5100';
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(obs.x + obs.width / 2, obs.y);
-        ctx.lineTo(obs.x + obs.width - 4, obs.y + obs.height);
-        ctx.lineTo(obs.x + 4, obs.y + obs.height);
-        ctx.closePath();
-        ctx.fill();
-        // White reflector stripes
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(obs.x + obs.width / 2 - 5, obs.y + 10, 10, 8);
-        // Base plate
-        ctx.fillStyle = '#333333';
-        ctx.fillRect(obs.x, obs.y + obs.height - 4, obs.width, 4);
+        if (currentLevelIdx === 3) {
+          // Level 4 (Cyber Dojo): Cyber Holo Emitter Base with bright red laser grid lines!
+          ctx.fillStyle = '#212121';
+          ctx.strokeStyle = '#ff1744';
+          ctx.lineWidth = 1.5;
+          // Base plate
+          ctx.fillRect(obs.x, obs.y + obs.height - 6, obs.width, 6);
+          ctx.strokeRect(obs.x, obs.y + obs.height - 6, obs.width, 6);
+          // Hologram triangle cone
+          const gradHolo = ctx.createLinearGradient(0, obs.y, 0, obs.y + obs.height);
+          gradHolo.addColorStop(0, 'rgba(255, 23, 68, 0.8)');
+          gradHolo.addColorStop(1, 'rgba(255, 23, 68, 0.05)');
+          ctx.fillStyle = gradHolo;
+          ctx.beginPath();
+          ctx.moveTo(obs.x + obs.width / 2, obs.y);
+          ctx.lineTo(obs.x + obs.width - 4, obs.y + obs.height - 6);
+          ctx.lineTo(obs.x + 4, obs.y + obs.height - 6);
+          ctx.closePath();
+          ctx.fill();
+        } else {
+          // Standard traffic cone
+          ctx.fillStyle = '#ff5100';
+          ctx.strokeStyle = '#fff';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(obs.x + obs.width / 2, obs.y);
+          ctx.lineTo(obs.x + obs.width - 4, obs.y + obs.height);
+          ctx.lineTo(obs.x + 4, obs.y + obs.height);
+          ctx.closePath();
+          ctx.fill();
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(obs.x + obs.width / 2 - 5, obs.y + 10, 10, 8);
+          ctx.fillStyle = '#333333';
+          ctx.fillRect(obs.x, obs.y + obs.height - 4, obs.width, 4);
+        }
       } else {
-        // Pothole/spilled soy puddle
-        ctx.fillStyle = 'rgba(29, 14, 4, 0.85)';
-        ctx.strokeStyle = 'rgba(255, 127, 80, 0.4)';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.ellipse(obs.x + obs.width / 2, obs.y + obs.height / 2, obs.width / 2, obs.height / 2, 0, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
+        // 'pothole'
+        if (currentLevelIdx === 4) {
+          // Level 5 (Fuji Peak): Icy slippery puddle with cool frosted blue glow!
+          ctx.fillStyle = 'rgba(224, 247, 250, 0.8)';
+          ctx.strokeStyle = 'rgba(0, 188, 212, 0.6)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.ellipse(obs.x + obs.width / 2, obs.y + obs.height / 2, obs.width / 2, obs.height / 2, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        } else {
+          // Standard dark soy puddle
+          ctx.fillStyle = 'rgba(29, 14, 4, 0.85)';
+          ctx.strokeStyle = 'rgba(255, 127, 80, 0.4)';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.ellipse(obs.x + obs.width / 2, obs.y + obs.height / 2, obs.width / 2, obs.height / 2, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        }
       }
       ctx.restore();
     });
@@ -1053,10 +1262,11 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
   };
 
   const drawParallaxDecorations = (ctx: CanvasRenderingContext2D) => {
-    // 3 layers of distant elements depending on delivery status!
+    // Distant decorative elements depending on dynamic level!
     const dist = levelDistanceRef.current;
+    const levelIndex = Math.floor(gameScoreRef.current / 300) % 5;
 
-    if (order.status === 'received' || order.status === 'preparing') {
+    if (levelIndex === 0) {
       // KITCHEN BACKDROP: Traditional lanterns, bamboo blinds
       ctx.fillStyle = 'rgba(255, 235, 205, 0.05)';
       // Draw 3 tatami sliding panel frames
@@ -1082,44 +1292,55 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
         ctx.fill();
         ctx.fillStyle = 'rgba(250, 40, 10, 0.4)';
       }
-    } else if (order.status === 'dispatched') {
-      // TOKYO STREETS: Neon outline towers, skyline silhouettes
-      ctx.fillStyle = 'rgba(15, 24, 48, 0.4)';
+    } else if (levelIndex === 1) {
+      // TOKYO STREETS: Cidade de Dia ☀️
+      // Sky clouds (since it is daytime, we can draw some beautiful soft white cumulus clouds drifting in the background)
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+      for (let i = 0; i < 4; i++) {
+        const xCloud = (i * 260 - (dist * 0.15)) % (BASE_WIDTH + 150);
+        ctx.beginPath();
+        ctx.arc(xCloud, 40 + (i % 2) * 15, 20, 0, Math.PI * 2);
+        ctx.arc(xCloud + 15, 30 + (i % 2) * 15, 25, 0, Math.PI * 2);
+        ctx.arc(xCloud + 35, 40 + (i % 2) * 15, 20, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Skyline silhouettes in warm slate day mist
+      ctx.fillStyle = 'rgba(110, 135, 155, 0.28)';
       for (let i = 0; i < 5; i++) {
         const xBuilding = (i * 220 - (dist * 0.1)) % (BASE_WIDTH + 120);
         const wBuilding = 140;
-        const hBuilding = 240 + (i % 2) * 80; // MUCH taller buildings (was 160 + (i % 2) * 50)
+        const hBuilding = 240 + (i % 2) * 80; // Taller buildings
         ctx.fillRect(xBuilding, GROUND_Y - hBuilding, wBuilding, hBuilding);
 
-        // Grid windows
-        ctx.fillStyle = 'rgba(255, 255, 50, 0.09)';
+        // Glass reflection window panels
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.22)';
         const rows = Math.min(8, Math.floor((hBuilding - 30) / 30));
         for (let r = 0; r < rows; r++) {
           for (let c = 0; c < 3; c++) {
             ctx.fillRect(xBuilding + 15 + c * 40, GROUND_Y - hBuilding + 15 + r * 30, 20, 15);
           }
         }
-        ctx.fillStyle = 'rgba(15, 24, 48, 0.4)';
       }
 
-      // Beautiful glowing distant mountains (Mt Fuji lookalike)
-      ctx.fillStyle = 'rgba(18, 12, 38, 0.65)';
+      // Beautiful Mt Fuji in daytime blue/snow
+      ctx.fillStyle = 'rgba(45, 80, 115, 0.22)';
       ctx.beginPath();
       ctx.moveTo(400 - (dist * 0.04) % 1000, GROUND_Y);
-      ctx.lineTo(550 - (dist * 0.04) % 1000, 120); // slightly higher peak
+      ctx.lineTo(550 - (dist * 0.04) % 1000, 120);
       ctx.lineTo(590 - (dist * 0.04) % 1000, 120);
       ctx.lineTo(740 - (dist * 0.04) % 1000, GROUND_Y);
       ctx.fill();
 
       // Fuji snow cap outline
-      ctx.fillStyle = 'rgba(255, 250, 250, 0.5)';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
       ctx.beginPath();
       ctx.moveTo(515 - (dist * 0.04) % 1000, 150);
       ctx.lineTo(550 - (dist * 0.04) % 1000, 120);
       ctx.lineTo(590 - (dist * 0.04) % 1000, 120);
       ctx.lineTo(625 - (dist * 0.04) % 1000, 150);
       ctx.fill();
-    } else {
+    } else if (levelIndex === 2) {
       // SACRED SAKURA GARDEN: Cherry trees raining petals
       // Huge Glowing full Golden Moon
       ctx.fillStyle = 'rgba(255, 223, 137, 0.25)';
@@ -1163,6 +1384,71 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
         ctx.ellipse(petalX, petalY, 5, 2.5, Math.PI / 4, 0, Math.PI * 2);
         ctx.fill();
       }
+    } else if (levelIndex === 3) {
+      // CYBER DOJO: Neon glowing red Torii gates & matrix code drops
+      ctx.fillStyle = 'rgba(255, 45, 85, 0.05)';
+      for (let i = 0; i < 4; i++) {
+        const xTorii = (i * 260 - (dist * 0.15)) % (BASE_WIDTH + 140);
+        ctx.fillStyle = 'rgba(255, 45, 85, 0.08)';
+        ctx.fillRect(xTorii, 60, 100, GROUND_Y - 60);
+        // Crossbeams
+        ctx.fillRect(xTorii - 15, 60, 130, 12);
+        ctx.fillRect(xTorii - 10, 80, 120, 8);
+        // Pillars
+        ctx.fillRect(xTorii + 12, 60, 14, GROUND_Y - 60);
+        ctx.fillRect(xTorii + 74, 60, 14, GROUND_Y - 60);
+        
+        ctx.fillStyle = 'rgba(255, 45, 85, 0.15)';
+        // Red glowing sun core in Dojo
+        ctx.beginPath();
+        ctx.arc(xTorii + 50, 120, 20, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      
+      // Cyber matrix streams
+      ctx.fillStyle = '#ff2d55';
+      ctx.globalAlpha = 0.25;
+      for (let i = 0; i < 15; i++) {
+        const dropX = (i * 70 - (dist * 0.4)) % (BASE_WIDTH + 40);
+        const dropY = (23 * i + (dist * 0.6)) % 320;
+        ctx.font = '8px monospace';
+        ctx.fillText(i % 2 === 0 ? '1' : '0', dropX, dropY);
+      }
+      ctx.globalAlpha = 1.0;
+    } else {
+      // FUJI ICE PEAKS: Glacier crystals, white snowy flakes
+      ctx.fillStyle = 'rgba(173, 216, 230, 0.1)';
+      for (let i = 0; i < 3; i++) {
+        const xGlacier = (i * 350 - (dist * 0.06)) % (BASE_WIDTH + 200);
+        ctx.beginPath();
+        ctx.moveTo(xGlacier, GROUND_Y);
+        ctx.lineTo(xGlacier + 100, 100);
+        ctx.lineTo(xGlacier + 200, GROUND_Y);
+        ctx.closePath();
+        ctx.fill();
+        
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.beginPath();
+        ctx.moveTo(xGlacier + 60, GROUND_Y);
+        ctx.lineTo(xGlacier + 100, 100);
+        ctx.lineTo(xGlacier + 110, 105);
+        ctx.lineTo(xGlacier + 80, GROUND_Y);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = 'rgba(173, 216, 230, 0.1)';
+      }
+      
+      // Snowy flakes
+      ctx.fillStyle = '#ffffff';
+      ctx.globalAlpha = 0.6;
+      for (let i = 0; i < 20; i++) {
+        const flakeX = (i * 55 - (dist * 0.3)) % (BASE_WIDTH + 40);
+        const flakeY = (18 * i + (dist * 0.12)) % 320;
+        ctx.beginPath();
+        ctx.arc(flakeX, flakeY, 3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1.0;
     }
   };
 
@@ -1200,7 +1486,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
           </div>
           <div>
             <h3 className="text-[10px] sm:text-xs font-bold font-mono tracking-wider text-slate-400 capitalize">
-              Fase: {order.status === 'received' || order.status === 'preparing' ? '1. Cozinha' : order.status === 'dispatched' ? '2. Trânsito' : '3. Jardim'}
+              Fase: {getThemeColors(gameScore).name}
             </h3>
           </div>
         </div>
@@ -1243,6 +1529,100 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
           onClick={gameState === 'playing' ? triggerJump : undefined}
         />
 
+        {/* Level Up Notification Banner */}
+        <AnimatePresence>
+          {levelNotification && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.5, y: 50 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 1.5, y: -50 }}
+              transition={{ type: "spring", stiffness: 200, damping: 15 }}
+              className="absolute pointer-events-none select-none z-30 flex flex-col items-center justify-center bg-slate-950/90 border-2 border-amber-500/85 px-8 py-5 rounded-3xl shadow-2xl shadow-amber-500/20 backdrop-blur-md max-w-xs text-center"
+            >
+              <div className="text-4xl sm:text-5xl animate-bounce mb-3">🔥 PROGRESSO!</div>
+              <p className="text-amber-400 font-extrabold tracking-wider font-mono text-[10px] sm:text-xs">
+                {levelNotification.split('\n')[0]}
+              </p>
+              <h4 className="text-xl sm:text-2xl font-black text-white mt-1 leading-tight">
+                {levelNotification.split('\n')[1]}
+              </h4>
+            </motion.div>
+          )}
+        </AnimatePresence>
+ 
+        {/* Spectacular 3D-Animated Floating Transition Banner for Phase 2 */}
+        <AnimatePresence>
+          {showPhaseTransitionBanner && (
+            <div className="absolute inset-0 bg-slate-950/80 z-40 backdrop-blur-md flex items-center justify-center p-4 select-none">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.82, rotateX: -30, rotateY: 10, y: 30 }}
+                animate={{ opacity: 1, scale: 1, rotateX: 0, rotateY: 0, y: 0 }}
+                exit={{ opacity: 0, scale: 0.85, rotateX: 30, rotateY: -10, y: -30 }}
+                transition={{ type: "spring", stiffness: 180, damping: 18 }}
+                style={{ transformStyle: "preserve-3d", perspective: 1200 }}
+                className="relative bg-gradient-to-br from-slate-900/98 via-slate-950 to-amber-950/20 border-2 border-amber-500/80 rounded-3xl p-6 sm:p-8 shadow-[0_30px_70px_rgba(245,158,11,0.25)] max-w-sm w-full text-center flex flex-col items-center"
+              >
+                {/* 3D floating effect light glow */}
+                <div className="absolute -inset-1 bg-gradient-to-r from-amber-500 to-salmon-500 rounded-3xl blur opacity-20 -z-10 animate-pulse" />
+
+                {/* Animated 3D Floating Sun Icon */}
+                <motion.div
+                  animate={{ 
+                    y: [0, -10, 0],
+                    rotate: [0, 360],
+                  }}
+                  transition={{ 
+                    y: { repeat: Infinity, duration: 2.2, ease: "easeInOut" },
+                    rotate: { repeat: Infinity, duration: 15, ease: "linear" }
+                  }}
+                  className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-amber-400 to-amber-600 rounded-full flex items-center justify-center text-3xl sm:text-4xl shadow-xl shadow-amber-500/35 border-2 border-yellow-300/40 mb-4 shrink-0"
+                >
+                  ☀️
+                </motion.div>
+
+                <div className="text-[10px] sm:text-xs font-mono font-black tracking-widest text-amber-400 uppercase bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/30">
+                  ⛩️ CONQUISTA DE SAMURAI
+                </div>
+
+                <h2 className="text-2xl sm:text-3xl font-black text-white mt-3 tracking-tight drop-shadow-md">
+                  Fase 1 Concluída!
+                </h2>
+
+                <p className="text-xs sm:text-sm text-slate-300 mt-2 leading-relaxed max-w-xs">
+                  Você dominou a Cozinha Ryotei com perfeição! Agora as coisas vão esquentar lá fora...
+                </p>
+
+                {/* Day phase note / highlight card */}
+                <div className="w-full mt-4 p-3 bg-sky-500/10 border border-sky-400/20 rounded-2xl flex flex-col items-center gap-1">
+                  <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-sky-300">
+                    PRÓXIMA PARADA:
+                  </span>
+                  <p className="text-xs text-sky-200 font-extrabold flex items-center gap-1">
+                    🌇 CIDADE DE DIA ☀️
+                  </p>
+                  <p className="text-[10px] text-slate-400">
+                    Aperte o cinto para desviar dos obstáculos sob a luz do sol!
+                  </p>
+                </div>
+
+                {/* 3D-feel shiny action button */}
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => {
+                    soundManager.playCollect();
+                    setShowPhaseTransitionBanner(false);
+                  }}
+                  className="w-full mt-6 py-3.5 sm:py-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black text-xs sm:text-sm rounded-xl sm:rounded-2xl shadow-lg shadow-amber-500/25 active:shadow-md cursor-pointer transition-all border-b-4 border-amber-800 focus:outline-none"
+                  id="start-phase2-button"
+                >
+                  INICIAR FASE 2 (DE DIA) ➡️
+                </motion.button>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
         {/* --- OVERLAY SCREENS DEPENDING ON GAME STATES --- */}
         <AnimatePresence mode="wait">
           {/* 1. Start Main Menu Screen */}
@@ -1265,7 +1645,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
                 Sushi Rush Online
               </h2>
               <p className="text-xs sm:text-sm md:text-base text-slate-350 mt-2 mb-5 xs:mb-7 sm:mb-9 max-w-sm leading-relaxed">
-                Divirta-se enquanto espera seu pedido. Marque mais de <span className="text-amber-400 font-extrabold">200 pontos</span> e receberá um cupom!
+                Divirta-se enquanto espera seu pedido. Supere obstáculos e avance de fase a cada <span className="text-amber-400 font-extrabold">300 pontos</span>!
               </p>
 
               {/* Name field input */}
@@ -1392,16 +1772,9 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
                 {playerName}, seu herói caiu no trânsito! Mas se divertiu e somou <span className="text-amber-400 font-bold">{gameScore} pontos</span>.
               </p>
 
-              {/* Reward prompt directly */}
-              {gameScore >= 200 ? (
-                <div className="mb-5 xs:mb-7 sm:mb-9 bg-amber-500/15 border border-amber-500/30 px-4 py-2.5 sm:px-5 sm:py-3.5 rounded-xl sm:rounded-2xl max-w-sm text-xs sm:text-sm text-amber-300 leading-snug">
-                  ✨ Você obteve {gameScore} pontos! Clique em <strong>Cupom</strong> na barra superior ou continue jogando!
-                </div>
-              ) : (
-                <p className="text-[10px] sm:text-xs text-slate-500 mb-5 xs:mb-7 sm:mb-9 leading-normal max-w-sm">
-                  Chegue a pelo menos <span className="font-bold text-salmon-400">200 pontos</span> para ganhar um cupom de desconto real de 5% OFF! Falta pouco!
-                </p>
-              )}
+              <div className="mb-5 xs:mb-7 sm:mb-9 bg-slate-900/80 border border-slate-800 px-4 py-2.5 sm:px-5 sm:py-3.5 rounded-xl sm:rounded-2xl max-w-sm text-xs sm:text-sm text-slate-300 leading-snug">
+                Fase alcançada: <span className="text-salmon-400 font-bold">{getThemeColors(gameScore).name}</span>. Novas fases e cenários a cada <span className="text-amber-400 font-bold">300 pontos</span>!
+              </div>
 
               <div className="flex gap-3 sm:gap-4">
                 <button
