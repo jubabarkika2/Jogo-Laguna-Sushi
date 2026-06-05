@@ -2604,14 +2604,14 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
         {/* Spectacular 3D-Animated Floating Transition Banner for Phase 2, Phase 3 & Phase 4 */}
         <AnimatePresence>
           {showPhaseTransitionBanner && (
-            <div className="absolute inset-0 bg-slate-950/80 z-40 backdrop-blur-md flex items-center justify-center p-4 select-none">
+            <div className="absolute inset-0 bg-slate-950/80 z-40 backdrop-blur-md flex items-start justify-center p-4 pt-6 sm:items-center sm:pt-4 select-none">
               <motion.div
-                initial={{ opacity: 0, scale: 0.82, rotateX: -30, rotateY: 10, y: 30 }}
-                animate={{ opacity: 1, scale: 1, rotateX: 0, rotateY: 0, y: 0 }}
-                exit={{ opacity: 0, scale: 0.85, rotateX: 30, rotateY: -10, y: -30 }}
+                initial={{ opacity: 0, scale: 0.82, rotateX: -30, rotateY: 10, y: 15 }}
+                animate={{ opacity: 1, scale: 1, rotateX: 0, rotateY: 0, y: -15 }}
+                exit={{ opacity: 0, scale: 0.85, rotateX: 30, rotateY: -10, y: -45 }}
                 transition={{ type: "spring", stiffness: 180, damping: 18 }}
                 style={{ transformStyle: "preserve-3d", perspective: 1200 }}
-                className="relative bg-gradient-to-br from-slate-900/98 via-slate-950 to-amber-950/20 border-2 border-amber-500/80 rounded-3xl p-6 sm:p-8 shadow-[0_30px_70px_rgba(245,158,11,0.25)] max-w-sm w-full text-center flex flex-col items-center"
+                className="relative bg-gradient-to-br from-slate-900/98 via-slate-950 to-amber-950/20 border-2 border-amber-500/80 rounded-3xl p-4 sm:p-8 shadow-[0_30px_70px_rgba(245,158,11,0.25)] max-w-sm w-full text-center flex flex-col items-center"
               >
                 {/* 3D floating effect light glow */}
                 <div className={`absolute -inset-1 bg-gradient-to-r ${bannerDetails.bannerGlow} rounded-3xl blur opacity-20 -z-10 animate-pulse`} />
@@ -2619,39 +2619,39 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
                 {/* Animated 3D Floating Icon */}
                 <motion.div
                   animate={{ 
-                    y: [0, -10, 0],
+                    y: [0, -8, 0],
                     rotate: bannerDetails.bannerIconRotate,
                   }}
                   transition={{ 
                     y: { repeat: Infinity, duration: 2.2, ease: "easeInOut" },
                     rotate: { repeat: Infinity, duration: transitionPhase === 3 ? 4 : 12, ease: "easeInOut" }
                   }}
-                  className={`w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br ${bannerDetails.bannerIconBg} rounded-full flex items-center justify-center text-3xl sm:text-4xl shadow-xl mb-4 shrink-0`}
+                  className={`w-12 h-12 sm:w-20 sm:h-20 bg-gradient-to-br ${bannerDetails.bannerIconBg} rounded-full flex items-center justify-center text-2xl sm:text-4xl shadow-xl mb-3 sm:mb-4 shrink-0`}
                 >
                   {bannerDetails.bannerIcon}
                 </motion.div>
 
-                <div className={`text-[10px] sm:text-xs font-mono font-black tracking-widest uppercase bg-amber-500/10 px-3 py-1 rounded-full border ${bannerDetails.bannerTagColor}`}>
+                <div className={`text-[9px] sm:text-xs font-mono font-black tracking-widest uppercase bg-amber-500/10 px-2.5 py-1 rounded-full border ${bannerDetails.bannerTagColor}`}>
                   {bannerDetails.bannerTag}
                 </div>
 
-                <h2 className="text-2xl sm:text-3xl font-black text-white mt-3 tracking-tight drop-shadow-md">
+                <h2 className="text-xl sm:text-3xl font-black text-white mt-2 sm:mt-3 tracking-tight drop-shadow-md">
                   {bannerDetails.bannerTitle}
                 </h2>
 
-                <p className="text-xs sm:text-sm text-slate-300 mt-2 leading-relaxed max-w-xs">
+                <p className="text-[11px] sm:text-sm text-slate-300 mt-1 sm:mt-2 leading-relaxed max-w-xs">
                   {bannerDetails.bannerSub}
                 </p>
 
                 {/* Next phase note / highlight card */}
-                <div className={`w-full mt-4 p-3 ${bannerDetails.bannerNextStyle} rounded-2xl flex flex-col items-center gap-1`}>
-                  <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-sky-300">
+                <div className={`w-full mt-2.5 sm:mt-4 p-2.5 sm:p-3 ${bannerDetails.bannerNextStyle} rounded-2xl flex flex-col items-center gap-0.5 sm:gap-1`}>
+                  <span className="text-[9px] uppercase font-mono font-bold tracking-wider text-sky-300">
                     PRÓXIMA PARADA:
                   </span>
                   <p className="text-xs text-sky-200 font-extrabold flex items-center gap-1">
                     {bannerDetails.bannerNextLine}
                   </p>
-                  <p className="text-[10px] text-slate-400 text-center">
+                  <p className="text-[9px] sm:text-[10px] text-slate-400 text-center">
                     {bannerDetails.bannerNextDesc}
                   </p>
                 </div>
@@ -2664,7 +2664,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
                     soundManager.playCollect();
                     setShowPhaseTransitionBanner(false);
                   }}
-                  className={`w-full mt-6 py-3.5 sm:py-4 bg-gradient-to-r ${bannerDetails.bannerBtnStyle} font-black text-xs sm:text-sm rounded-xl sm:rounded-2xl shadow-lg cursor-pointer transition-all border-b-4 focus:outline-none`}
+                  className={`w-full mt-4 sm:mt-6 py-2.5 sm:py-4 bg-gradient-to-r ${bannerDetails.bannerBtnStyle} font-black text-xs sm:text-sm rounded-xl sm:rounded-2xl shadow-lg cursor-pointer transition-all border-b-4 focus:outline-none`}
                   id={bannerDetails.bannerBtnId}
                 >
                   {bannerDetails.bannerBtnText}
