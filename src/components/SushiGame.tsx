@@ -83,11 +83,11 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
   const collectibleTimerRef = useRef(0);
 
   const getLevelIndex = (score: number): number => {
-    if (score < 50) return 0;
-    if (score < 105) return 1;
-    if (score < 165) return 2;
-    if (score < 235) return 3;
-    if (score < 315) return 4;
+    if (score < 400) return 0;
+    if (score < 600) return 1;
+    if (score < 850) return 2;
+    if (score < 1001) return 3;
+    if (score < 1400) return 4;
     return 5;
   };
 
@@ -99,7 +99,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
   const getThemeColors = (score = gameScoreRef.current) => {
     const levelIndex = getLevelIndex(score);
     switch (levelIndex) {
-      case 0: // Level 1 (0-49)
+      case 0: // Level 1 (0-399)
         return {
           bgGradStart: '#1e112a', // Kitchen Tatami / warm Purple night
           bgGradEnd: '#0b0610',
@@ -107,7 +107,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
           accentColor: '#ffa07a', // Salmon
           name: '1. Cozinha Ryotei 🍙'
         };
-      case 1: // Level 2 (50-104)
+      case 1: // Level 2 (400-599)
         return {
           bgGradStart: '#4fc3f7', // Beautiful light sky blue
           bgGradEnd: '#b3e5fc',   // Gentle morning light
@@ -115,7 +115,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
           accentColor: '#ff9800', // Daylight sun orange
           name: '2. Cidade de Dia ☀️'
         };
-      case 2: // Level 3 (105-164)
+      case 2: // Level 3 (600-849)
         return {
           bgGradStart: '#4a607a', // Overcast dark blue/grey daytime sky
           bgGradEnd: '#90a4ae',   // Pale rainy horizon light
@@ -123,7 +123,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
           accentColor: '#80d8ff', // Sky blue rainy glow
           name: '3. Chuva na Cidade 🌧️'
         };
-      case 3: // Level 4 (165-234)
+      case 3: // Level 4 (850-1000)
         return {
           bgGradStart: '#04020f', // Deep infinite outer space black
           bgGradEnd: '#140c28',   // Glowing cosmos purple/violet sky
@@ -131,7 +131,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
           accentColor: '#e040fb', // Stellar neon magenta glow
           name: '4. Espaço Sideral 🌌'
         };
-      case 4: // Level 5 (235-314)
+      case 4: // Level 5 (1001-1399)
         return {
           bgGradStart: '#020d1a', // Abyssal zone darkest blue
           bgGradEnd: '#082545',   // Deep ocean teal-blue
@@ -139,7 +139,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
           accentColor: '#00e5ff', // Luminescent cyan/turquoise glow
           name: '5. Fundo do Mar 🌊'
         };
-      case 5: // Level 6 (315+)
+      case 5: // Level 6 (1400+)
         return {
           bgGradStart: '#0f2027', // Snowy Glacier Blue
           bgGradEnd: '#203a43',
@@ -684,8 +684,8 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
 
       const heightY = GROUND_Y - 60 - Math.random() * 120; // different heights
       const points = randType === 'laguna_sushi' ? 30 : (randType === 'soy_sauce' ? 20 : 10);
-      const colWidth = randType === 'laguna_sushi' ? 52 : 25;
-      const colHeight = randType === 'laguna_sushi' ? 26 : 25;
+      const colWidth = randType === 'laguna_sushi' ? 104 : 25;
+      const colHeight = randType === 'laguna_sushi' ? 52 : 25;
 
       collectiblesRef.current.push({
         x: BASE_WIDTH,
@@ -1130,29 +1130,52 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
         ctx.fillStyle = '#FF0000';
         ctx.fillRect(col.x + 8, yOffset + 1, col.width - 16, 5);
       } else if (col.type === 'laguna_sushi') {
-        // Draw Laguna Sushi custom badge/label in red and white
-        ctx.fillStyle = '#FFFFFF';
-        ctx.strokeStyle = '#EF4444'; // Red-500
-        ctx.lineWidth = 2;
+        // Draw Laguna Sushi custom badge/label with split background: Top white, Bottom red
+        ctx.save();
+        
         ctx.beginPath();
-        ctx.roundRect(col.x, yOffset, col.width, col.height, 6);
+        ctx.roundRect(col.x, yOffset, col.width, col.height, 12);
+        ctx.fillStyle = '#FFFFFF';
         ctx.fill();
+        
+        // Clip to draw bottom half in red cleanly inside the curved corners
+        ctx.clip();
+        ctx.fillStyle = '#EF4444';
+        ctx.fillRect(col.x, yOffset + col.height / 2, col.width, col.height / 2);
+        
+        ctx.restore();
+
+        // Draw the red border around the whole badge
+        ctx.strokeStyle = '#EF4444'; // Red-500
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.roundRect(col.x, yOffset, col.width, col.height, 12);
         ctx.stroke();
 
-        // Small red dot designs inside the badge
+        // Decorative dots: Top dots are red (on white), bottom dots are white (on red)
         ctx.fillStyle = '#EF4444';
         ctx.beginPath();
-        ctx.arc(col.x + 5, yOffset + col.height / 2, 2, 0, Math.PI * 2);
-        ctx.arc(col.x + col.width - 5, yOffset + col.height / 2, 2, 0, Math.PI * 2);
+        ctx.arc(col.x + 12, yOffset + col.height / 2 - 9, 4, 0, Math.PI * 2);
+        ctx.arc(col.x + col.width - 12, yOffset + col.height / 2 - 9, 4, 0, Math.PI * 2);
         ctx.fill();
 
-        // Draw "LAGUNA" and "SUSHI" text inside the banner
+        ctx.fillStyle = '#FFFFFF';
+        ctx.beginPath();
+        ctx.arc(col.x + 12, yOffset + col.height / 2 + 9, 4, 0, Math.PI * 2);
+        ctx.arc(col.x + col.width - 12, yOffset + col.height / 2 + 9, 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Draw "LAGUNA" in RED (top half, white background) - Doubled font size to 16px!
         ctx.fillStyle = '#EF4444';
-        ctx.font = 'black 7px "Space Grotesk", sans-serif';
+        ctx.font = 'bold 16px "Space Grotesk", sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('LAGUNA', col.x + col.width / 2, yOffset + col.height / 2 - 4.5);
-        ctx.fillText('SUSHI', col.x + col.width / 2, yOffset + col.height / 2 + 4.5);
+        ctx.fillText('LAGUNA', col.x + col.width / 2, yOffset + col.height / 2 - 10);
+
+        // Draw "SUSHI" in WHITE (bottom half, red background) - Doubled font size to 16px!
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = 'bold 16px "Space Grotesk", sans-serif';
+        ctx.fillText('SUSHI', col.x + col.width / 2, yOffset + col.height / 2 + 11);
       } else if (col.type === 'sushi_maki') {
         // DRAW RED/GREEN CYLINDER MAKI
         ctx.fillStyle = '#17402a'; // Nori dark seaweed green
@@ -2674,7 +2697,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
               </p>
 
               <div className="mb-5 xs:mb-7 sm:mb-9 bg-slate-900/80 border border-slate-800 px-4 py-2.5 sm:px-5 sm:py-3.5 rounded-xl sm:rounded-2xl max-w-sm text-xs sm:text-sm text-slate-300 leading-snug">
-                Fase alcançada: <span className="text-salmon-400 font-bold">{getThemeColors(gameScore).name}</span>. Novas fases e cenários a partir de <span className="text-amber-400 font-bold">50, 105, 165, 235 e 315 pontos</span>!
+                Fase alcançada: <span className="text-salmon-400 font-bold">{getThemeColors(gameScore).name}</span>. Novas fases e cenários a partir de <span className="text-amber-400 font-bold">400, 600, 850, 1001 e 1400 pontos</span>!
               </div>
 
               <div className="flex gap-3 sm:gap-4">
