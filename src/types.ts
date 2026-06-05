@@ -27,7 +27,7 @@ export interface GameCollectible {
   y: number;
   width: number;
   height: number;
-  type: 'sushi_maki' | 'sushi_nigiri' | 'sushi_temaki' | 'soy_sauce' | 'ginger';
+  type: 'sushi_maki' | 'sushi_nigiri' | 'sushi_temaki' | 'soy_sauce' | 'ginger' | 'laguna_sushi';
   points: number;
   collected: boolean;
   pulse: number;

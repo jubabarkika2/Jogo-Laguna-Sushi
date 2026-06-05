@@ -32,6 +32,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
   const [playerName, setPlayerName] = useState('Seu Nome');
   const [levelNotification, setLevelNotification] = useState<string | null>(null);
   const [showPhaseTransitionBanner, setShowPhaseTransitionBanner] = useState(false);
+  const [transitionPhase, setTransitionPhase] = useState<number>(2);
   const isPhaseTransitionOpenRef = useRef(false);
 
   useEffect(() => {
@@ -44,6 +45,9 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
   const obstaclesRef = useRef<GameObstacle[]>([]);
   const collectiblesRef = useRef<GameCollectible[]>([]);
   const particlesRef = useRef<GameParticle[]>([]);
+  const canvasPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isCanvasLongPressRef = useRef(false);
+  const canvasPressStartRef = useRef(0);
 
   const gameScoreRef = useRef(gameScore);
   
@@ -78,11 +82,24 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
   const obstacleTimerRef = useRef(0);
   const collectibleTimerRef = useRef(0);
 
+  const getLevelIndex = (score: number): number => {
+    if (score < 50) return 0;
+    if (score < 105) return 1;
+    if (score < 165) return 2;
+    if (score < 235) return 3;
+    if (score < 315) return 4;
+    return 5;
+  };
+
+  const getLevelFromScore = (score: number): number => {
+    return getLevelIndex(score) + 1;
+  };
+
   // Background environments linking to OrderStatus
   const getThemeColors = (score = gameScoreRef.current) => {
-    const levelIndex = Math.floor(score / 300) % 5;
+    const levelIndex = getLevelIndex(score);
     switch (levelIndex) {
-      case 0: // Level 1 (0-299)
+      case 0: // Level 1 (0-49)
         return {
           bgGradStart: '#1e112a', // Kitchen Tatami / warm Purple night
           bgGradEnd: '#0b0610',
@@ -90,7 +107,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
           accentColor: '#ffa07a', // Salmon
           name: '1. Cozinha Ryotei 🍙'
         };
-      case 1: // Level 2 (300-599)
+      case 1: // Level 2 (50-104)
         return {
           bgGradStart: '#4fc3f7', // Beautiful light sky blue
           bgGradEnd: '#b3e5fc',   // Gentle morning light
@@ -98,29 +115,37 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
           accentColor: '#ff9800', // Daylight sun orange
           name: '2. Cidade de Dia ☀️'
         };
-      case 2: // Level 3 (600-899)
+      case 2: // Level 3 (105-164)
         return {
-          bgGradStart: '#021e17', // Japanese Garden / soft Green sunset
-          bgGradEnd: '#010907',
-          groundColor: '#2b1a13', // Soft wooden path
-          accentColor: '#ffb7c5', // Sakura pink glow
-          name: '3. Jardim Sagrado 🌸'
+          bgGradStart: '#4a607a', // Overcast dark blue/grey daytime sky
+          bgGradEnd: '#90a4ae',   // Pale rainy horizon light
+          groundColor: '#263238', // Wet graphite dark road asphalt
+          accentColor: '#80d8ff', // Sky blue rainy glow
+          name: '3. Chuva na Cidade 🌧️'
         };
-      case 3: // Level 4 (900-1199)
+      case 3: // Level 4 (165-234)
         return {
-          bgGradStart: '#2d0909', // Cyber Dojo Crimson Dark
-          bgGradEnd: '#0c0202',
-          groundColor: '#1a1a1a', // Cyber obsidian floor
-          accentColor: '#ff2d55', // Red cyber neon
-          name: '4. Templo Cyber-Dojo ⛩️'
+          bgGradStart: '#04020f', // Deep infinite outer space black
+          bgGradEnd: '#140c28',   // Glowing cosmos purple/violet sky
+          groundColor: '#100b21', // Dark obsidian space rock platform
+          accentColor: '#e040fb', // Stellar neon magenta glow
+          name: '4. Espaço Sideral 🌌'
         };
-      case 4: // Level 5 (1200+)
+      case 4: // Level 5 (235-314)
+        return {
+          bgGradStart: '#020d1a', // Abyssal zone darkest blue
+          bgGradEnd: '#082545',   // Deep ocean teal-blue
+          groundColor: '#0a162b', // Dark sandy seabed trench floor
+          accentColor: '#00e5ff', // Luminescent cyan/turquoise glow
+          name: '5. Fundo do Mar 🌊'
+        };
+      case 5: // Level 6 (315+)
         return {
           bgGradStart: '#0f2027', // Snowy Glacier Blue
           bgGradEnd: '#203a43',
           groundColor: '#eceff1', // Ice snow floor
           accentColor: '#33b5e5', // Frozen icy cyan
-          name: '5. Pico Fuji Gelado 🏔️'
+          name: '6. Pico Fuji Gelado 🏔️'
         };
       default:
         return {
@@ -152,10 +177,23 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
 
   useEffect(() => {
     if (gameState === 'playing') {
-      const currentLevel = Math.floor(gameScore / 300) + 1;
+      const currentLevel = getLevelFromScore(gameScore);
       if (currentLevel > lastLevelRef.current) {
-        // Trigger 3D banner if transitioning from Level 1 to Level 2
+        // Trigger 3D banner if transitioning from Level 1 to Level 2, or Level 2 to Level 3
         if (lastLevelRef.current === 1 && currentLevel === 2) {
+          setTransitionPhase(2);
+          setShowPhaseTransitionBanner(true);
+          soundManager.playVictory();
+        } else if (lastLevelRef.current === 2 && currentLevel === 3) {
+          setTransitionPhase(3);
+          setShowPhaseTransitionBanner(true);
+          soundManager.playVictory();
+        } else if (lastLevelRef.current === 3 && currentLevel === 4) {
+          setTransitionPhase(4);
+          setShowPhaseTransitionBanner(true);
+          soundManager.playVictory();
+        } else if (lastLevelRef.current === 4 && currentLevel === 5) {
+          setTransitionPhase(5);
           setShowPhaseTransitionBanner(true);
           soundManager.playVictory();
         } else {
@@ -167,11 +205,12 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
         const levelNames = [
           'Cozinha Ryotei 🍙',
           'Cidade de Dia ☀️',
-          'Jardim Sagrado 🌸',
-          'Templo Cyber-Dojo ⛩️',
+          'Chuva na Cidade 🌧️',
+          'Espaço Sideral 🌌',
+          'Fundo do Mar 🌊',
           'Pico Fuji Gelado 🏔️'
         ];
-        const nextName = levelNames[(currentLevel - 1) % 5];
+        const nextName = levelNames[(currentLevel - 1) % 6];
         setLevelNotification(`FASE ${currentLevel}!\n${nextName}`);
 
         if (levelTimerRef.current) {
@@ -336,6 +375,58 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
     }
   };
 
+  const handleCanvasPressStart = (e: React.MouseEvent | React.TouchEvent) => {
+    if (e.type === 'touchstart') {
+      if (gameStateRef.current === 'playing') {
+        e.preventDefault();
+      }
+    }
+
+    if (gameStateRef.current !== 'playing') return;
+
+    // Clear any previous timer
+    if (canvasPressTimerRef.current) {
+      clearTimeout(canvasPressTimerRef.current);
+    }
+
+    isCanvasLongPressRef.current = false;
+    canvasPressStartRef.current = Date.now();
+
+    // Set 220ms threshold for long click (abaixar/slide)
+    canvasPressTimerRef.current = setTimeout(() => {
+      isCanvasLongPressRef.current = true;
+      triggerSlide(true);
+    }, 220);
+  };
+
+  const handleCanvasPressEnd = (e: React.MouseEvent | React.TouchEvent) => {
+    if (e.type === 'touchend' || e.type === 'touchcancel') {
+      if (gameStateRef.current === 'playing') {
+        e.preventDefault();
+      }
+    }
+
+    if (gameStateRef.current !== 'playing') return;
+
+    if (canvasPressTimerRef.current) {
+      clearTimeout(canvasPressTimerRef.current);
+      canvasPressTimerRef.current = null;
+    }
+
+    if (isCanvasLongPressRef.current) {
+      // Release from long press -> stop sliding
+      triggerSlide(false);
+    } else {
+      // Release from short tab/click -> jump
+      const now = Date.now();
+      if (now - canvasPressStartRef.current < 220) {
+        triggerJump();
+      }
+    }
+
+    isCanvasLongPressRef.current = false;
+  };
+
   // Particles generator
   const createExplosion = (x: number, y: number, color: string) => {
     for (let i = 0; i < 15; i++) {
@@ -443,7 +534,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
     }
 
     // 2. Adjust Difficulty speed based on overall score / progress phase (completely stable within each phase)
-    const currentPhase = Math.floor(gameScoreRef.current / 300);
+    const currentPhase = getLevelFromScore(gameScoreRef.current) - 1;
     speedScaleRef.current = 1.0 + Math.min(currentPhase * 0.15, 0.60);
 
     // 3. Update obstacles
@@ -535,13 +626,13 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
     collectibleTimerRef.current++;
 
     // Spawn obstacles dynamically with completely stable interval pacing within each phase
-    const currentPhase = Math.floor(gameScoreRef.current / 300);
+    const currentPhase = getLevelFromScore(gameScoreRef.current) - 1;
     const baseSpawnRate = Math.max(120 - currentPhase * 12, 75);
     if (obstacleTimerRef.current >= baseSpawnRate + (Math.random() * 50 - 25)) {
       obstacleTimerRef.current = 0;
 
       // Choose obstacle types based on current score-based level
-      const lenIdx = Math.floor(gameScoreRef.current / 300) % 5;
+      const lenIdx = getLevelIndex(gameScoreRef.current);
       let availableTypes: ('wasabi' | 'chopsticks' | 'cone' | 'pothole')[];
       if (lenIdx === 0) {
         availableTypes = ['wasabi', 'chopsticks'];
@@ -587,18 +678,20 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
     if (collectibleTimerRef.current >= 80) {
       collectibleTimerRef.current = 0;
 
-      const types: ('sushi_maki' | 'sushi_nigiri' | 'sushi_temaki' | 'soy_sauce' | 'ginger')[] = 
-        ['sushi_maki', 'sushi_nigiri', 'sushi_temaki', 'soy_sauce'];
+      const types: ('sushi_maki' | 'sushi_nigiri' | 'sushi_temaki' | 'soy_sauce' | 'ginger' | 'laguna_sushi')[] = 
+        ['sushi_maki', 'sushi_nigiri', 'sushi_temaki', 'soy_sauce', 'laguna_sushi'];
       const randType = types[Math.floor(Math.random() * types.length)];
 
       const heightY = GROUND_Y - 60 - Math.random() * 120; // different heights
-      const points = randType === 'soy_sauce' ? 20 : 10;
+      const points = randType === 'laguna_sushi' ? 30 : (randType === 'soy_sauce' ? 20 : 10);
+      const colWidth = randType === 'laguna_sushi' ? 52 : 25;
+      const colHeight = randType === 'laguna_sushi' ? 26 : 25;
 
       collectiblesRef.current.push({
         x: BASE_WIDTH,
         y: heightY,
-        width: 25,
-        height: 25,
+        width: colWidth,
+        height: colHeight,
         type: randType,
         points,
         collected: false,
@@ -710,7 +803,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
     // 3. Draw obstacles
     obstaclesRef.current.forEach(obs => {
       ctx.save();
-      const currentLevelIdx = Math.floor(gameScoreRef.current / 300) % 5;
+      const currentLevelIdx = getLevelIndex(gameScoreRef.current);
 
       if (obs.type === 'wasabi') {
         if (currentLevelIdx === 2) {
@@ -738,8 +831,67 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
           ctx.arc(obs.x + 10, obs.y + 18, 2, 0, Math.PI * 2);
           ctx.arc(obs.x + 20, obs.y + 18, 2, 0, Math.PI * 2);
           ctx.fill();
+        } else if (currentLevelIdx === 3) {
+          // Level 4 (Espaço Sideral): Glowing Purple Alien Slime with single cute eye!
+          ctx.fillStyle = '#b388ff';
+          ctx.strokeStyle = '#ea80fc';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.moveTo(obs.x + obs.width / 2, obs.y);
+          ctx.quadraticCurveTo(obs.x + obs.width, obs.y + obs.height, obs.x + obs.width, obs.y + obs.height);
+          ctx.lineTo(obs.x, obs.y + obs.height);
+          ctx.quadraticCurveTo(obs.x, obs.y + obs.height, obs.x + obs.width / 2, obs.y);
+          ctx.fill();
+          ctx.stroke();
+
+          // Eyeball
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.arc(obs.x + obs.width / 2, obs.y + 16, 6, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#ff1744'; // Glowing red pupil
+          ctx.beginPath();
+          ctx.arc(obs.x + obs.width / 2, obs.y + 16, 2, 0, Math.PI * 2);
+          ctx.fill();
         } else if (currentLevelIdx === 4) {
-          // Level 5 (Fuji Peaks): Glacier blue crystal spire!
+          // Level 5 (Fundo do Mar): Spike Sea Urchin (Ouriço do Mar) with cute eyes!
+          ctx.fillStyle = '#110033';
+          ctx.strokeStyle = '#ea80fc';
+          ctx.lineWidth = 1.5;
+          const uX = obs.x + obs.width / 2;
+          const uY = obs.y + obs.height / 2;
+          const r = 14;
+
+          // Drawing urchin spikes
+          for (let s = 0; s < 12; s++) {
+            const angle = (s * Math.PI * 2) / 12;
+            const sX = uX + Math.cos(angle) * 22;
+            const sY = uY + Math.sin(angle) * 22;
+            ctx.beginPath();
+            ctx.moveTo(uX, uY);
+            ctx.lineTo(sX, sY);
+            ctx.stroke();
+          }
+
+          // Central body
+          ctx.beginPath();
+          ctx.arc(uX, uY, r, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Cute eyes
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.arc(uX - 4, uY - 2, 3, 0, Math.PI * 2);
+          ctx.arc(uX + 4, uY - 2, 3, 0, Math.PI * 2);
+          ctx.fill();
+          
+          ctx.fillStyle = '#110033';
+          ctx.beginPath();
+          ctx.arc(uX - 4, uY - 2, 1.2, 0, Math.PI * 2);
+          ctx.arc(uX + 4, uY - 2, 1.2, 0, Math.PI * 2);
+          ctx.fill();
+        } else if (currentLevelIdx === 5) {
+          // Level 6 (Fuji Peaks): Glacier blue crystal spire!
           ctx.fillStyle = '#e0f7fa';
           ctx.strokeStyle = '#00acc1';
           ctx.lineWidth = 2;
@@ -813,6 +965,28 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
           // Laser core glow
           ctx.fillStyle = '#ffffff';
           ctx.fillRect(obs.x + 4, obs.y + 6, obs.width - 8, obs.height - 8);
+        } else if (currentLevelIdx === 4) {
+          // Level 5 (Fundo do Mar): Bioluminescent ocean laser grid / electric fence
+          ctx.fillStyle = '#00e5ff';
+          ctx.strokeStyle = '#00acc1';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.roundRect(obs.x, obs.y + 4, obs.width, obs.height - 4, 3);
+          ctx.fill();
+          ctx.stroke();
+
+          // Sparking electricity cores
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1;
+          for (let i = 0; i < 4; i++) {
+            const pX = obs.x + (i * 10) + 4;
+            ctx.beginPath();
+            ctx.moveTo(pX, obs.y + 6);
+            ctx.lineTo(pX + 3, obs.y + 12);
+            ctx.lineTo(pX - 1, obs.y + 12);
+            ctx.lineTo(pX + 2, obs.y + 18);
+            ctx.stroke();
+          }
         } else {
           // Standard chopsticks
           ctx.fillStyle = '#c59b6d';
@@ -845,6 +1019,30 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
           ctx.lineTo(obs.x + 4, obs.y + obs.height - 6);
           ctx.closePath();
           ctx.fill();
+        } else if (currentLevelIdx === 4) {
+          // Level 5 (Fundo do Mar): Sunken pirate-themed Rusty Anchor!
+          ctx.fillStyle = '#b0bec5';
+          ctx.strokeStyle = '#37474f';
+          ctx.lineWidth = 2;
+          const aX = obs.x + obs.width / 2;
+          const aY = obs.y + 6;
+
+          // Stock/Ring
+          ctx.beginPath();
+          ctx.arc(aX, aY + 6, 6, 0, Math.PI * 2);
+          ctx.stroke();
+
+          // Main vertical shank
+          ctx.fillRect(aX - 3, aY + 12, 6, obs.height - 18);
+          ctx.strokeRect(aX - 3, aY + 12, 6, obs.height - 18);
+
+          // Horizontal stock crossbar
+          ctx.fillRect(aX - 12, aY + 16, 24, 4);
+
+          // Crescent-shaped fluke
+          ctx.beginPath();
+          ctx.arc(aX, obs.y + obs.height - 10, 15, 0, Math.PI, false);
+          ctx.stroke();
         } else {
           // Standard traffic cone
           ctx.fillStyle = '#ff5100';
@@ -864,7 +1062,28 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
       } else {
         // 'pothole'
         if (currentLevelIdx === 4) {
-          // Level 5 (Fuji Peak): Icy slippery puddle with cool frosted blue glow!
+          // Level 5 (Fundo do Mar): Deep blue glowing oceanic whirlpool vortex!
+          const vortexGrad = ctx.createRadialGradient(obs.x + obs.width / 2, obs.y + obs.height / 2, 2, obs.x + obs.width / 2, obs.y + obs.height / 2, obs.width / 2);
+          vortexGrad.addColorStop(0, '#00e5ff'); // spinning cyan core
+          vortexGrad.addColorStop(0.5, '#0057b7'); // dark ocean blue ring
+          vortexGrad.addColorStop(1, 'rgba(2, 13, 26, 0)'); // fade out
+          ctx.fillStyle = vortexGrad;
+          ctx.beginPath();
+          ctx.ellipse(obs.x + obs.width / 2, obs.y + obs.height / 2, obs.width / 2, obs.height / 2, 0, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Spiral swirling lines on the whirlpool
+          ctx.strokeStyle = 'rgba(0, 229, 255, 0.45)';
+          ctx.lineWidth = 1.2;
+          ctx.save();
+          ctx.translate(obs.x + obs.width / 2, obs.y + obs.height / 2);
+          ctx.rotate(levelDistanceRef.current * 0.08); // spin animation!
+          ctx.beginPath();
+          ctx.ellipse(0, 0, obs.width * 0.4, obs.height * 0.3, 0, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        } else if (currentLevelIdx === 5) {
+          // Level 6 (Fuji Peak): Icy slippery puddle with cool frosted blue glow!
           ctx.fillStyle = 'rgba(224, 247, 250, 0.8)';
           ctx.strokeStyle = 'rgba(0, 188, 212, 0.6)';
           ctx.lineWidth = 2;
@@ -910,6 +1129,30 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
         // Spout red cap
         ctx.fillStyle = '#FF0000';
         ctx.fillRect(col.x + 8, yOffset + 1, col.width - 16, 5);
+      } else if (col.type === 'laguna_sushi') {
+        // Draw Laguna Sushi custom badge/label in red and white
+        ctx.fillStyle = '#FFFFFF';
+        ctx.strokeStyle = '#EF4444'; // Red-500
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.roundRect(col.x, yOffset, col.width, col.height, 6);
+        ctx.fill();
+        ctx.stroke();
+
+        // Small red dot designs inside the badge
+        ctx.fillStyle = '#EF4444';
+        ctx.beginPath();
+        ctx.arc(col.x + 5, yOffset + col.height / 2, 2, 0, Math.PI * 2);
+        ctx.arc(col.x + col.width - 5, yOffset + col.height / 2, 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Draw "LAGUNA" and "SUSHI" text inside the banner
+        ctx.fillStyle = '#EF4444';
+        ctx.font = 'black 7px "Space Grotesk", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('LAGUNA', col.x + col.width / 2, yOffset + col.height / 2 - 4.5);
+        ctx.fillText('SUSHI', col.x + col.width / 2, yOffset + col.height / 2 + 4.5);
       } else if (col.type === 'sushi_maki') {
         // DRAW RED/GREEN CYLINDER MAKI
         ctx.fillStyle = '#17402a'; // Nori dark seaweed green
@@ -971,270 +1214,617 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
       ctx.globalAlpha = 0.25;
     }
 
+    const isSpaceLevel = getLevelIndex(gameScoreRef.current) === 3;
+    const isOceanLevel = getLevelIndex(gameScoreRef.current) === 4;
+
     ctx.translate(p.x + p.width / 2, p.y + p.height / 2);
     ctx.rotate(p.rotation);
 
-    if (selectedCharacter === 'maki') {
-      // CUSTOM SUSHI MAKI HERO ARTWORKS
-      // Seaweed body
-      ctx.fillStyle = '#1e3518';
-      ctx.strokeStyle = '#2e8b57';
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      ctx.arc(0, 0, p.width / 2, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
+    if (p.isSliding && !isSpaceLevel) {
+      // VISUALLY BEND DOWN AND SLIDE (SE ABAIXA E ESCORREGA)
+      ctx.scale(1.4, 0.45);  // highly flat and wide to physically duck/slide
+      ctx.translate(0, 10);   // nudge center downward to align perfectly with the floor
+      ctx.rotate(-0.06);     // slightly tilt backward for sliding momentum
+    }
 
+    if (isSpaceLevel) {
+      // DELUXE FUTURISTIC SPACESHIP WITH THE THREE CUTE HEROES (MAKI, SCOOTER, AND CHEF YUKI) INSIDE!
+      // 1. Double engine thruster exhaust flame at the bottom
+      const flicker = Math.sin(p.animFrame * 0.8) * 4;
+      ctx.fillStyle = '#ff3d00';
+      ctx.beginPath();
+      ctx.moveTo(-12, 10);
+      ctx.lineTo(-5, 23 + flicker);
+      ctx.lineTo(2, 10);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(2, 10);
+      ctx.lineTo(9, 23 + flicker);
+      ctx.lineTo(16, 10);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.fillStyle = '#ffea00';
+      ctx.beginPath();
+      ctx.moveTo(-9, 10);
+      ctx.lineTo(-5, 17 + flicker * 0.6);
+      ctx.lineTo(-1, 10);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(5, 10);
+      ctx.lineTo(9, 17 + flicker * 0.6);
+      ctx.lineTo(13, 10);
+      ctx.closePath();
+      ctx.fill();
+
+      // 2. Space capsule cockpit backing plate (so space background stars don't shine through characters)
+      ctx.fillStyle = '#1c2035'; // dark navy interior
+      ctx.beginPath();
+      ctx.arc(0, -3, 22, Math.PI, 0, false);
+      ctx.closePath();
+      ctx.fill();
+
+      // 3. Render Micro-Character #1: Sushi Maki (Left)
+      ctx.save();
+      ctx.translate(-13, -3);
+      if (p.isJumping) {
+        ctx.translate(0, -2); // little jump float
+      }
+      // Seaweed body
+      ctx.fillStyle = '#112211';
+      ctx.beginPath();
+      ctx.arc(0, 0, 6.5, 0, Math.PI * 2);
+      ctx.fill();
       // Rice body
       ctx.fillStyle = '#ffffff';
       ctx.beginPath();
-      ctx.arc(0, 0, p.width * 0.4, 0, Math.PI * 2);
+      ctx.arc(0, 0, 5.2, 0, Math.PI * 2);
       ctx.fill();
-
-      // Salmon meat center
+      // Salmon center
       ctx.fillStyle = '#ff6b5a';
       ctx.beginPath();
-      ctx.arc(0, 0, p.width * 0.22, 0, Math.PI * 2);
+      ctx.arc(0, 0, 3, 0, Math.PI * 2);
       ctx.fill();
-
-      // Draw cute cartoon face inside!
+      // Face
       ctx.fillStyle = '#111111';
-      // Blinking or jumping face expression
-      if (p.isJumping) {
-        // happy closed anime eyes: ^^
-        ctx.strokeStyle = '#111';
-        ctx.lineWidth = 2.5;
-        ctx.beginPath();
-        ctx.arc(-10, -2, 4, Math.PI, 0, false);
-        ctx.arc(10, -2, 4, Math.PI, 0, false);
-        ctx.stroke();
-      } else {
-        // Round open anime eyes
-        ctx.beginPath();
-        ctx.arc(-9, -2, 3.5, 0, Math.PI * 2);
-        ctx.arc(9, -2, 3.5, 0, Math.PI * 2);
-        ctx.fill();
-        // Highlight reflection dots
-        ctx.fillStyle = '#ffffff';
-        ctx.beginPath();
-        ctx.arc(-10.5, -3.5, 1.2, 0, Math.PI * 2);
-        ctx.arc(7.5, -3.5, 1.2, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      // Rosy cheeks blushing details
-      ctx.fillStyle = 'rgba(255, 105, 180, 0.55)';
       ctx.beginPath();
-      ctx.arc(-14, 4, 3.5, 0, Math.PI * 2);
-      ctx.arc(14, 4, 3.5, 0, Math.PI * 2);
+      ctx.arc(-2.5, -0.6, 0.8, 0, Math.PI * 2);
+      ctx.arc(2.5, -0.6, 0.8, 0, Math.PI * 2);
       ctx.fill();
-
-      // Happy open smile
-      ctx.strokeStyle = '#111';
-      ctx.lineWidth = 2;
+      // Soft blush
+      ctx.fillStyle = 'rgba(255, 105, 180, 0.6)';
       ctx.beginPath();
-      ctx.arc(0, 3, 4, 0, Math.PI, false);
-      ctx.stroke();
-    } else if (selectedCharacter === 'scooter') {
-      // COOL MOTOBOY COURIER SUSHIMAN ON ELECTRICAL VESPA
-      // Draw scooter body
-      ctx.fillStyle = '#fa5a5a';
-      ctx.strokeStyle = '#2e1111';
-      ctx.lineWidth = 2;
-
-      // Scooter chassis
-      ctx.beginPath();
-      ctx.roundRect(-22, 4, 40, p.height / 2 - 4, 6);
+      ctx.arc(-4, 1, 0.9, 0, Math.PI * 2);
+      ctx.arc(4, 1, 0.9, 0, Math.PI * 2);
       ctx.fill();
-      ctx.stroke();
-
-      // Steering column
-      ctx.lineWidth = 3;
-      ctx.strokeStyle = '#8a9ea7';
-      ctx.beginPath();
-      ctx.moveTo(12, 4);
-      ctx.lineTo(16, -14);
-      ctx.stroke();
-
-      // Handlebar
-      ctx.fillStyle = '#333';
-      ctx.fillRect(10, -18, 10, 4);
-
-      // Cute round head on top wearing green wasabi helmet!
-      ctx.fillStyle = '#fedbb4'; // Skin tone
-      ctx.beginPath();
-      ctx.arc(2, -15, 9, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Green wasabi helmet
-      ctx.fillStyle = '#6ab82e';
-      ctx.beginPath();
-      ctx.arc(1, -17, 10, Math.PI, 0);
-      ctx.fill();
-      // Helmet strap
-      ctx.strokeStyle = '#333';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(-6, -15);
-      ctx.lineTo(2, -7);
-      ctx.lineTo(8, -15);
-      ctx.stroke();
-
-      // Goggles
-      ctx.fillStyle = '#00ffff';
-      ctx.fillRect(2, -21, 8, 4);
-
-      // Delivery Backpack Box (Lacrada box) behind!
-      ctx.fillStyle = '#ffe4b5';
-      ctx.strokeStyle = '#c59b6d';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.roundRect(-24, -14, 16, 20, 3);
-      ctx.fill();
-      ctx.stroke();
-      // Logo sushi detailing on backpack box
-      ctx.fillStyle = '#fa8072';
-      ctx.beginPath();
-      ctx.arc(-16, -4, 4, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Wheels
-      const spinAngle = p.animFrame;
-      ctx.save();
-      ctx.translate(-14, 18);
-      ctx.rotate(spinAngle);
-      drawScooterWheel(ctx);
       ctx.restore();
 
+      // 4. Render Micro-Character #2: Chef Yuki (Center)
       ctx.save();
-      ctx.translate(14, 18);
-      ctx.rotate(spinAngle);
-      drawScooterWheel(ctx);
-      ctx.restore();
-    } else {
-      // BEAUTIFUL CUTE FEMALE SUSHIMAN (CHEF YUKI) ARTWORK
-      // 1. Draw Chef white kimono/body robe
-      ctx.fillStyle = '#ffffff'; // White kimono
-      ctx.strokeStyle = '#2d3436';
-      ctx.lineWidth = 2.5;
+      ctx.translate(0, -5);
+      const spaceYukiBounce = Math.sin(p.animFrame * 0.12) * 1.5;
+      ctx.translate(0, spaceYukiBounce);
+      // Face Skin
+      ctx.fillStyle = '#fedbb4';
       ctx.beginPath();
-      ctx.roundRect(-16, 2, 32, p.height / 2 - 2, [0, 0, 4, 4]);
+      ctx.arc(0, -1, 7.5, 0, Math.PI * 2);
       ctx.fill();
-      ctx.stroke();
-
-      // Red Sash belt (Obi wrapper)
-      ctx.fillStyle = '#ff4d4d';
-      ctx.beginPath();
-      ctx.rect(-16, 12, 32, 6);
-      ctx.fill();
-
-      // Kimono overlapping folds (V-neck neckliner)
-      ctx.strokeStyle = '#dfe4ea';
-      ctx.lineWidth = 1.8;
-      ctx.beginPath();
-      ctx.moveTo(-10, 2);
-      ctx.lineTo(0, 10);
-      ctx.lineTo(10, 2);
-      ctx.stroke();
-
-      // 2. Head background hair layer (cute buns that bounce)
-      ctx.fillStyle = '#1e272e'; // Silky black/dark-slate hair color
-      const hairBounce = Math.sin(p.animFrame * 1.5) * 2.5;
-      ctx.beginPath();
-      ctx.arc(-16, -11 + hairBounce, 7, 0, Math.PI * 2); // left hair bun
-      ctx.arc(16, -11 + hairBounce, 7, 0, Math.PI * 2);  // right hair bun
-      ctx.fill();
-
-      // Cute red ribbon ties for buns
-      ctx.fillStyle = '#ff4d4d';
-      ctx.fillRect(-17, -7 + hairBounce, 3, 4);
-      ctx.fillRect(14, -7 + hairBounce, 3, 4);
-
-      // 3. Round cute head skin base
-      ctx.fillStyle = '#fedbb4'; // warm skin tone
-      ctx.beginPath();
-      ctx.arc(0, -8, 14, 0, Math.PI * 2);
-      ctx.fill();
-
-      // 4. Front overlay hair (Bangs & sides framing face)
+      // Hair buns
       ctx.fillStyle = '#1e272e';
       ctx.beginPath();
-      ctx.arc(0, -11, 14, Math.PI, 0); // Hair bangs cap
+      ctx.arc(-7.8, -6, 3.8, 0, Math.PI * 2);
+      ctx.arc(7.8, -6, 3.8, 0, Math.PI * 2);
       ctx.fill();
-
-      // Side strands
-      ctx.beginPath();
-      ctx.moveTo(-14, -8);
-      ctx.lineTo(-14, 0);
-      ctx.lineTo(-10, -4);
-      ctx.closePath();
-      ctx.fill();
-
-      ctx.beginPath();
-      ctx.moveTo(14, -8);
-      ctx.lineTo(14, 0);
-      ctx.lineTo(10, -4);
-      ctx.closePath();
-      ctx.fill();
-
-      // 5. White Hachimaki (Chef headband) with red sun symbol
+      // Headband
       ctx.fillStyle = '#ffffff';
-      ctx.fillRect(-12, -16, 24, 5); // Headband strip
-
-      // Red sun emblem in center of headband
+      ctx.fillRect(-6.5, -7.2, 13, 2.5);
+      // Red emblem
       ctx.fillStyle = '#fc3d39';
       ctx.beginPath();
-      ctx.arc(0, -13.5, 2.2, 0, Math.PI * 2);
+      ctx.arc(0, -6, 1.1, 0, Math.PI * 2);
       ctx.fill();
-
-      // Back hanging headband tie ribbons
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 2.5;
+      // Eyes
+      ctx.fillStyle = '#111111';
       ctx.beginPath();
-      ctx.moveTo(-12, -14);
-      ctx.lineTo(-18, -17 + Math.sin(p.animFrame) * 1.5);
-      ctx.moveTo(-12, -14);
-      ctx.lineTo(-17, -11 + Math.sin(p.animFrame + 1) * 1.5);
+      ctx.arc(-2.6, -1.8, 1.1, 0, Math.PI * 2);
+      ctx.arc(2.6, -1.8, 1.1, 0, Math.PI * 2);
+      ctx.fill();
+      // Smile
+      ctx.strokeStyle = '#111111';
+      ctx.lineWidth = 0.9;
+      ctx.beginPath();
+      ctx.arc(0, 1.2, 1.6, 0, Math.PI, false);
+      ctx.stroke();
+      ctx.restore();
+
+      // 5. Render Micro-Character #3: Scooter Courier (Right)
+      ctx.save();
+      ctx.translate(13, -3);
+      if (p.isJumping) {
+        ctx.translate(0, -2);
+      }
+      // Face
+      ctx.fillStyle = '#fedbb4';
+      ctx.beginPath();
+      ctx.arc(0, 0, 6.5, 0, Math.PI * 2);
+      ctx.fill();
+      // Wasabi Helmet
+      ctx.fillStyle = '#6ab82e';
+      ctx.beginPath();
+      ctx.arc(0, -1.5, 7, Math.PI, 0);
+      ctx.fill();
+      // Goggles
+      ctx.fillStyle = '#00ffff';
+      ctx.strokeStyle = '#222';
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.rect(-3, -2.5, 6, 2.2);
+      ctx.fill();
+      ctx.stroke();
+      // Smiling mouth
+      ctx.strokeStyle = '#111111';
+      ctx.lineWidth = 0.8;
+      ctx.beginPath();
+      ctx.arc(0, 2.2, 1.4, 0, Math.PI, false);
+      ctx.stroke();
+      ctx.restore();
+
+      // 6. Draw the glowing clear spaceship glass dome overlay
+      ctx.fillStyle = 'rgba(128, 222, 234, 0.3)'; // cyan shiny dome
+      ctx.strokeStyle = 'rgba(128, 222, 234, 0.8)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(0, -3, 22, Math.PI, 0, false);
+      ctx.closePath();
+      ctx.fill();
       ctx.stroke();
 
-      // 6. Draw eyes & face expressions based on state
-      ctx.fillStyle = '#111111';
-      if (p.isJumping) {
-        // Joyful closed anime eyes ^^ when jumping/double jumping
-        ctx.strokeStyle = '#111111';
+      // Shiny dome reflection light
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.65)';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.arc(0, -3, 18, Math.PI * 1.15, Math.PI * 1.35, false);
+      ctx.stroke();
+
+      // 7. Outer Metallic Saucer rim
+      const saucerGrad = ctx.createLinearGradient(-28, 0, 28, 12);
+      saucerGrad.addColorStop(0, '#eceff1');
+      saucerGrad.addColorStop(0.3, '#b0bec5');
+      saucerGrad.addColorStop(0.7, '#78909c');
+      saucerGrad.addColorStop(1, '#37474f');
+      ctx.fillStyle = saucerGrad;
+      ctx.strokeStyle = '#1a237e';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.ellipse(0, 8, 28, 9, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // 8. Glowing control ring under body
+      ctx.strokeStyle = '#e040fb';  // bright cosmic purple neon
+      ctx.lineWidth = 1.6;
+      ctx.beginPath();
+      ctx.ellipse(0, 8, 24, 5, 0, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Flashing pilot flight beacon lights
+      const isBeaconOn = Math.floor(p.animFrame / 10) % 2 === 0;
+      ctx.fillStyle = isBeaconOn ? '#00e5ff' : '#d500f9';
+      ctx.beginPath();
+      ctx.arc(-16, 7, 2.2, 0, Math.PI * 2);
+      ctx.arc(16, 7, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = isBeaconOn ? '#ff1744' : '#ffeb3b';
+      ctx.beginPath();
+      ctx.arc(0, 9, 2, 0, Math.PI * 2);
+      ctx.fill();
+
+    } else {
+      if (selectedCharacter === 'maki') {
+        // CUSTOM SUSHI MAKI HERO ARTWORKS
+        // Seaweed body
+        ctx.fillStyle = '#1e3518';
+        ctx.strokeStyle = '#2e8b57';
         ctx.lineWidth = 2.5;
         ctx.beginPath();
-        ctx.arc(-6, -8, 3, Math.PI, 0, false);
-        ctx.arc(6, -8, 3, Math.PI, 0, false);
-        ctx.stroke();
-      } else {
-        // Beautiful shiny rounded cartoon eyes
-        ctx.beginPath();
-        ctx.arc(-5.5, -8, 3.2, 0, Math.PI * 2);
-        ctx.arc(5.5, -8, 3.2, 0, Math.PI * 2);
+        ctx.arc(0, 0, p.width / 2, 0, Math.PI * 2);
         ctx.fill();
+        ctx.stroke();
 
-        // Shiny reflections
+        // Rice body
         ctx.fillStyle = '#ffffff';
         ctx.beginPath();
-        ctx.arc(-6.5, -9, 0.9, 0, Math.PI * 2);
-        ctx.arc(4.5, -9, 0.9, 0, Math.PI * 2);
+        ctx.arc(0, 0, p.width * 0.4, 0, Math.PI * 2);
         ctx.fill();
+
+        // Salmon meat center
+        ctx.fillStyle = '#ff6b5a';
+        ctx.beginPath();
+        ctx.arc(0, 0, p.width * 0.22, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Draw cute cartoon face inside!
+        ctx.fillStyle = '#111111';
+        // Blinking or jumping face expression
+        if (p.isJumping) {
+          // happy closed anime eyes: ^^
+          ctx.strokeStyle = '#111';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.arc(-10, -2, 4, Math.PI, 0, false);
+          ctx.arc(10, -2, 4, Math.PI, 0, false);
+          ctx.stroke();
+        } else {
+          // Round open anime eyes
+          ctx.beginPath();
+          ctx.arc(-9, -2, 3.5, 0, Math.PI * 2);
+          ctx.arc(9, -2, 3.5, 0, Math.PI * 2);
+          ctx.fill();
+          // Highlight reflection dots
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.arc(-10.5, -3.5, 1.2, 0, Math.PI * 2);
+          ctx.arc(7.5, -3.5, 1.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Rosy cheeks blushing details
+        ctx.fillStyle = 'rgba(255, 105, 180, 0.55)';
+        ctx.beginPath();
+        ctx.arc(-14, 4, 3.5, 0, Math.PI * 2);
+        ctx.arc(14, 4, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Happy open smile
+        ctx.strokeStyle = '#111';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 3, 4, 0, Math.PI, false);
+        ctx.stroke();
+
+        if (isOceanLevel) {
+          // UNDERWATER GLASS HELMET ON MAKI
+          // Yellow connector collar base
+          ctx.fillStyle = '#fffc33';
+          ctx.strokeStyle = '#b58d3d';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.roundRect(-14, 18, 28, 5, 2);
+          ctx.fill();
+          ctx.stroke();
+
+          // Glass dome
+          ctx.fillStyle = 'rgba(128, 222, 234, 0.25)'; // aqua shiny transparent
+          ctx.strokeStyle = 'rgba(128, 222, 234, 0.8)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(0, 0, 26, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          // Reflective light streak
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(0, 0, 23, Math.PI * 1.1, Math.PI * 1.3, false);
+          ctx.stroke();
+
+          // Little bubbles stream
+          const bubbleWobble = Math.sin(p.animFrame * 0.15) * 3;
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+          ctx.beginPath();
+          ctx.arc(22 + bubbleWobble, -12, 2, 0, Math.PI * 2);
+          ctx.arc(16 + bubbleWobble, -18, 1.2, 0, Math.PI * 2);
+          ctx.arc(26 - bubbleWobble, -24, 2.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      } else if (selectedCharacter === 'scooter') {
+        // COOL MOTOBOY COURIER SUSHIMAN ON ELECTRICAL VESPA
+        // Draw scooter body
+        ctx.fillStyle = '#fa5a5a';
+        ctx.strokeStyle = '#2e1111';
+        ctx.lineWidth = 2;
+
+        // Scooter chassis
+        ctx.beginPath();
+        ctx.roundRect(-22, 4, 40, p.height / 2 - 4, 6);
+        ctx.fill();
+        ctx.stroke();
+
+        // Steering column
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#8a9ea7';
+        ctx.beginPath();
+        ctx.moveTo(12, 4);
+        ctx.lineTo(16, -14);
+        ctx.stroke();
+
+        // Handlebar
+        ctx.fillStyle = '#333';
+        ctx.fillRect(10, -18, 10, 4);
+
+        // Cute round head on top wearing green wasabi helmet!
+        ctx.fillStyle = '#fedbb4'; // Skin tone
+        ctx.beginPath();
+        ctx.arc(2, -15, 9, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Green wasabi helmet
+        ctx.fillStyle = '#6ab82e';
+        ctx.beginPath();
+        ctx.arc(1, -17, 10, Math.PI, 0);
+        ctx.fill();
+        // Helmet strap
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(-6, -15);
+        ctx.lineTo(2, -7);
+        ctx.lineTo(8, -15);
+        ctx.stroke();
+
+        // Goggles
+        ctx.fillStyle = '#00ffff';
+        ctx.fillRect(2, -21, 8, 4);
+
+        // Delivery Backpack Box (Lacrada box) behind!
+        ctx.fillStyle = '#ffe4b5';
+        ctx.strokeStyle = '#c59b6d';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.roundRect(-24, -14, 16, 20, 3);
+        ctx.fill();
+        ctx.stroke();
+        // Logo sushi detailing on backpack box
+        ctx.fillStyle = '#fa8072';
+        ctx.beginPath();
+        ctx.arc(-16, -4, 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Wheels
+        const spinAngle = p.animFrame;
+        ctx.save();
+        ctx.translate(-14, 18);
+        ctx.rotate(spinAngle);
+        drawScooterWheel(ctx);
+        ctx.restore();
+
+        ctx.save();
+        ctx.translate(14, 18);
+        ctx.rotate(spinAngle);
+        drawScooterWheel(ctx);
+        ctx.restore();
+
+        if (isOceanLevel) {
+          // UNDERWATER GLASS HELMET ON SCOOTER HERO
+          // Oxygen hose from helmet neck to lunchbox
+          ctx.strokeStyle = 'rgba(128, 222, 234, 0.8)';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.moveTo(-4, -11);
+          ctx.quadraticCurveTo(-18, -12, -18, -4);
+          ctx.stroke();
+
+          // Metallic collar
+          ctx.fillStyle = '#fffc33';
+          ctx.strokeStyle = '#b58d3d';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.ellipse(2, -5, 11, 4, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          // Glass dome around scooter's head (head is at x=2, y=-15)
+          ctx.fillStyle = 'rgba(128, 222, 234, 0.25)';
+          ctx.strokeStyle = 'rgba(128, 222, 234, 0.8)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(2, -15, 15, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          // Reflection shine
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(2, -15, 12, Math.PI * 1.1, Math.PI * 1.3, false);
+          ctx.stroke();
+
+          // Little bubbles stream
+          const bubbleWobble = Math.sin(p.animFrame * 0.15) * 3;
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+          ctx.beginPath();
+          ctx.arc(18 + bubbleWobble, -22, 2, 0, Math.PI * 2);
+          ctx.arc(14 - bubbleWobble, -28, 1.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      } else {
+        // BEAUTIFUL CUTE FEMALE SUSHIMAN (CHEF YUKI) ARTWORK
+        // 1. Draw Chef white kimono/body robe
+        ctx.fillStyle = '#ffffff'; // White kimono
+        ctx.strokeStyle = '#2d3436';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.roundRect(-16, 2, 32, p.height / 2 - 2, [0, 0, 4, 4]);
+        ctx.fill();
+        ctx.stroke();
+
+        // Red Sash belt (Obi wrapper)
+        ctx.fillStyle = '#ff4d4d';
+        ctx.beginPath();
+        ctx.rect(-16, 12, 32, 6);
+        ctx.fill();
+
+        // Kimono overlapping folds (V-neck neckliner)
+        ctx.strokeStyle = '#dfe4ea';
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.moveTo(-10, 2);
+        ctx.lineTo(0, 10);
+        ctx.lineTo(10, 2);
+        ctx.stroke();
+
+        // 2. Head background hair layer (cute buns that bounce)
+        ctx.fillStyle = '#1e272e'; // Silky black/dark-slate hair color
+        const hairBounce = Math.sin(p.animFrame * 1.5) * 2.5;
+        ctx.beginPath();
+        ctx.arc(-16, -11 + hairBounce, 7, 0, Math.PI * 2); // left hair bun
+        ctx.arc(16, -11 + hairBounce, 7, 0, Math.PI * 2);  // right hair bun
+        ctx.fill();
+
+        // Cute red ribbon ties for buns
+        ctx.fillStyle = '#ff4d4d';
+        ctx.fillRect(-17, -7 + hairBounce, 3, 4);
+        ctx.fillRect(14, -7 + hairBounce, 3, 4);
+
+        // 3. Round cute head skin base
+        ctx.fillStyle = '#fedbb4'; // warm skin tone
+        ctx.beginPath();
+        ctx.arc(0, -8, 14, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 4. Front overlay hair (Bangs & sides framing face)
+        ctx.fillStyle = '#1e272e';
+        ctx.beginPath();
+        ctx.arc(0, -11, 14, Math.PI, 0); // Hair bangs cap
+        ctx.fill();
+
+        // Side strands
+        ctx.beginPath();
+        ctx.moveTo(-14, -8);
+        ctx.lineTo(-14, 0);
+        ctx.lineTo(-10, -4);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.moveTo(14, -8);
+        ctx.lineTo(14, 0);
+        ctx.lineTo(10, -4);
+        ctx.closePath();
+        ctx.fill();
+
+        // 5. White Hachimaki (Chef headband) with red sun symbol
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(-12, -16, 24, 5); // Headband strip
+
+        // Red sun emblem in center of headband
+        ctx.fillStyle = '#fc3d39';
+        ctx.beginPath();
+        ctx.arc(0, -13.5, 2.2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Back hanging headband tie ribbons
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.moveTo(-12, -14);
+        ctx.lineTo(-18, -17 + Math.sin(p.animFrame) * 1.5);
+        ctx.moveTo(-12, -14);
+        ctx.lineTo(-17, -11 + Math.sin(p.animFrame + 1) * 1.5);
+        ctx.stroke();
+
+        // 6. Draw eyes & face expressions based on state
+        ctx.fillStyle = '#111111';
+        if (p.isJumping) {
+          // Joyful closed anime eyes ^^ when jumping/double jumping
+          ctx.strokeStyle = '#111111';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.arc(-6, -8, 3, Math.PI, 0, false);
+          ctx.arc(6, -8, 3, Math.PI, 0, false);
+          ctx.stroke();
+        } else {
+          // Beautiful shiny rounded cartoon eyes
+          ctx.beginPath();
+          ctx.arc(-5.5, -8, 3.2, 0, Math.PI * 2);
+          ctx.arc(5.5, -8, 3.2, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Shiny reflections
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.arc(-6.5, -9, 0.9, 0, Math.PI * 2);
+          ctx.arc(4.5, -9, 0.9, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Rosy blush on cheeks
+        ctx.fillStyle = 'rgba(255, 105, 180, 0.65)';
+        ctx.beginPath();
+        ctx.arc(-10, -4, 2.5, 0, Math.PI * 2);
+        ctx.arc(10, -4, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Cute smile
+        ctx.strokeStyle = '#111111';
+        ctx.lineWidth = 1.8;
+        ctx.beginPath();
+        ctx.arc(0, -3.5, 2.5, 0, Math.PI, false);
+        ctx.stroke();
+
+        if (isOceanLevel) {
+          // UNDERWATER GLASS HELMET ON CHEF YUKI
+          // Oxygen canister on her back (behind head/body)
+          ctx.fillStyle = '#ff4d4d'; // coral reddish oxygen tank
+          ctx.strokeStyle = '#2d3436';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.roundRect(-24, -2, 8, 18, 3);
+          ctx.fill();
+          ctx.stroke();
+
+          // Oxygen cylinder cap
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(-22, -4, 4, 2);
+
+          // Hose tube connecting tank to helmet neck
+          ctx.strokeStyle = 'rgba(128, 222, 234, 0.8)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(-20, -2);
+          ctx.quadraticCurveTo(-16, -10, -10, -10);
+          ctx.stroke();
+
+          // Shiny yellow copper collar rim at the neck / shoulders area
+          ctx.fillStyle = '#fffc33';
+          ctx.strokeStyle = '#b58d3d';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.ellipse(0, 11, 15, 4, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          // Glass bubble helmet (centered on y=-9 of radius 24 to overlay head and hair buns nicely)
+          ctx.fillStyle = 'rgba(128, 222, 234, 0.25)';
+          ctx.strokeStyle = 'rgba(128, 222, 234, 0.8)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(0, -9, 24, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          // Dome reflection line
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.6)';
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          ctx.arc(0, -9, 21, Math.PI * 1.1, Math.PI * 1.3, false);
+          ctx.stroke();
+
+          // Streaming bubbles rising from helmet
+          const bubbleWobble = Math.sin(p.animFrame * 0.15) * 3;
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+          ctx.beginPath();
+          ctx.arc(24 + bubbleWobble, -18, 2, 0, Math.PI * 2);
+          ctx.arc(20 - bubbleWobble, -26, 1.2, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
-
-      // Rosy blush on cheeks
-      ctx.fillStyle = 'rgba(255, 105, 180, 0.65)';
-      ctx.beginPath();
-      ctx.arc(-10, -4, 2.5, 0, Math.PI * 2);
-      ctx.arc(10, -4, 2.5, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Cute smile
-      ctx.strokeStyle = '#111111';
-      ctx.lineWidth = 1.8;
-      ctx.beginPath();
-      ctx.arc(0, -3.5, 2.5, 0, Math.PI, false);
-      ctx.stroke();
     }
 
     ctx.restore(); // Restore Player Transform
@@ -1264,7 +1854,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
   const drawParallaxDecorations = (ctx: CanvasRenderingContext2D) => {
     // Distant decorative elements depending on dynamic level!
     const dist = levelDistanceRef.current;
-    const levelIndex = Math.floor(gameScoreRef.current / 300) % 5;
+    const levelIndex = getLevelIndex(gameScoreRef.current);
 
     if (levelIndex === 0) {
       // KITCHEN BACKDROP: Traditional lanterns, bamboo blinds
@@ -1305,16 +1895,16 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
         ctx.fill();
       }
 
-      // Skyline silhouettes in warm slate day mist
-      ctx.fillStyle = 'rgba(110, 135, 155, 0.28)';
+      // Skyline silhouettes in rich black day outline
       for (let i = 0; i < 5; i++) {
+        ctx.fillStyle = 'rgba(15, 15, 15, 0.95)';
         const xBuilding = (i * 220 - (dist * 0.1)) % (BASE_WIDTH + 120);
         const wBuilding = 140;
         const hBuilding = 240 + (i % 2) * 80; // Taller buildings
         ctx.fillRect(xBuilding, GROUND_Y - hBuilding, wBuilding, hBuilding);
 
         // Glass reflection window panels
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.22)';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
         const rows = Math.min(8, Math.floor((hBuilding - 30) / 30));
         for (let r = 0; r < rows; r++) {
           for (let c = 0; c < 3; c++) {
@@ -1341,80 +1931,300 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
       ctx.lineTo(625 - (dist * 0.04) % 1000, 150);
       ctx.fill();
     } else if (levelIndex === 2) {
-      // SACRED SAKURA GARDEN: Cherry trees raining petals
-      // Huge Glowing full Golden Moon
-      ctx.fillStyle = 'rgba(255, 223, 137, 0.25)';
-      ctx.beginPath();
-      ctx.arc(640, 90, 50, 0, Math.PI * 2);
-      ctx.fill();
-      // Moon corona halo ring
-      ctx.strokeStyle = 'rgba(255, 223, 137, 0.05)';
-      ctx.lineWidth = 10;
-      ctx.beginPath();
-      ctx.arc(640, 90, 62, 0, Math.PI * 2);
-      ctx.stroke();
-
-      // Tree silhouette trunk
-      ctx.fillStyle = 'rgba(14, 42, 33, 0.8)';
-      ctx.beginPath();
-      const treeX = 180 - (dist * 0.15) % 1000;
-      ctx.moveTo(treeX, GROUND_Y);
-      ctx.quadraticCurveTo(treeX + 15, GROUND_Y - 120, treeX + 5, GROUND_Y - 220); // taller tree
-      ctx.lineTo(treeX + 18, GROUND_Y - 220);
-      ctx.quadraticCurveTo(treeX + 25, GROUND_Y - 110, treeX + 45, GROUND_Y);
-      ctx.closePath();
-      ctx.fill();
-
-      // Cherry blossom canopy fluff circles
-      ctx.fillStyle = '#ffb7c5';
-      ctx.globalAlpha = 0.45;
-      ctx.beginPath();
-      ctx.arc(treeX - 10, GROUND_Y - 228, 65, 0, Math.PI * 2); // wider leaves
-      ctx.arc(treeX + 25, GROUND_Y - 235, 75, 0, Math.PI * 2);
-      ctx.arc(treeX + 10, GROUND_Y - 190, 60, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.globalAlpha = 1.0;
-
-      // Single flying sakura petals drifting right down
-      ctx.fillStyle = '#ffb7c5';
-      for (let i = 0; i < 12; i++) {
-        const petalX = (i * 90 - (dist * 0.5)) % (BASE_WIDTH + 60);
-        const petalY = (15 * i + (dist * 0.23)) % 320;
+      // OVERCAST RAINY DAY CITY: Black city buildings and diagonal falling rain 🌧️
+      // Overcast dark grey/blue rain clouds
+      ctx.fillStyle = 'rgba(84, 110, 122, 0.45)';
+      for (let i = 0; i < 4; i++) {
+        const xCloud = (i * 260 - (dist * 0.15)) % (BASE_WIDTH + 150);
         ctx.beginPath();
-        ctx.ellipse(petalX, petalY, 5, 2.5, Math.PI / 4, 0, Math.PI * 2);
+        ctx.arc(xCloud, 40 + (i % 2) * 15, 25, 0, Math.PI * 2);
+        ctx.arc(xCloud + 18, 30 + (i % 2) * 15, 30, 0, Math.PI * 2);
+        ctx.arc(xCloud + 40, 40 + (i % 2) * 15, 25, 0, Math.PI * 2);
         ctx.fill();
+      }
+
+      // Skyline silhouettes in solid rich black
+      for (let i = 0; i < 5; i++) {
+        ctx.fillStyle = '#0a0d10';
+        const xBuilding = (i * 220 - (dist * 0.1)) % (BASE_WIDTH + 1205) - 100;
+        const wBuilding = 140;
+        const hBuilding = 240 + (i % 2) * 80; // High buildings
+        ctx.fillRect(xBuilding, GROUND_Y - hBuilding, wBuilding, hBuilding);
+
+        // Glass reflection window panels highlighted in cold ambient blue
+        ctx.fillStyle = 'rgba(128, 216, 255, 0.25)';
+        const rows = Math.min(8, Math.floor((hBuilding - 30) / 30));
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < 3; c++) {
+            ctx.fillRect(xBuilding + 15 + c * 40, GROUND_Y - hBuilding + 15 + r * 30, 20, 15);
+          }
+        }
+      }
+
+      // Beautiful Mt Fuji silhouetted in dark indigo storm rest
+      ctx.fillStyle = 'rgba(38, 50, 56, 0.5)';
+      ctx.beginPath();
+      ctx.moveTo(400 - (dist * 0.04) % 1000, GROUND_Y);
+      ctx.lineTo(550 - (dist * 0.04) % 1000, 120);
+      ctx.lineTo(590 - (dist * 0.04) % 1000, 120);
+      ctx.lineTo(740 - (dist * 0.04) % 1000, GROUND_Y);
+      ctx.fill();
+
+      // Beautiful diagonal falling rain drops
+      ctx.strokeStyle = 'rgba(179, 229, 252, 0.42)';
+      ctx.lineWidth = 1.8;
+      for (let i = 0; i < 50; i++) {
+        const rainSpeedX = 5;
+        const rainSpeedY = 13;
+        const dropX = (i * 22 + dist * rainSpeedX) % (BASE_WIDTH + 100) - 50;
+        const dropY = (i * 18 + dist * rainSpeedY) % GROUND_Y;
+        
+        ctx.beginPath();
+        ctx.moveTo(dropX, dropY);
+        ctx.lineTo(dropX - 12, dropY + 28); // Diagonal movement downwards and slightly to the left (or right, -12 maintains perfect diagonal tilt)
+        ctx.stroke();
       }
     } else if (levelIndex === 3) {
-      // CYBER DOJO: Neon glowing red Torii gates & matrix code drops
-      ctx.fillStyle = 'rgba(255, 45, 85, 0.05)';
-      for (let i = 0; i < 4; i++) {
-        const xTorii = (i * 260 - (dist * 0.15)) % (BASE_WIDTH + 140);
-        ctx.fillStyle = 'rgba(255, 45, 85, 0.08)';
-        ctx.fillRect(xTorii, 60, 100, GROUND_Y - 60);
-        // Crossbeams
-        ctx.fillRect(xTorii - 15, 60, 130, 12);
-        ctx.fillRect(xTorii - 10, 80, 120, 8);
-        // Pillars
-        ctx.fillRect(xTorii + 12, 60, 14, GROUND_Y - 60);
-        ctx.fillRect(xTorii + 74, 60, 14, GROUND_Y - 60);
+      // OUTER SPACE: Twinkling cosmic stars, gorgeous nebulae, ringed giant planet
+      // 1. Distant space nebulae dust
+      ctx.fillStyle = 'rgba(103, 58, 183, 0.12)';
+      const nebulaX = (280 - (dist * 0.06)) % (BASE_WIDTH + 300) - 100;
+      ctx.beginPath();
+      ctx.arc(nebulaX, 80, 120, 0, Math.PI * 2);
+      ctx.arc(nebulaX + 130, 110, 90, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 2. Beautiful parallax twinkling stars
+      for (let i = 0; i < 40; i++) {
+        // Pseudo-random coordinates based on indexes
+        const starX = (i * 37 - (dist * 0.12)) % (BASE_WIDTH + 80);
+        const starY = (i * 19 + 15) % (GROUND_Y - 30);
         
-        ctx.fillStyle = 'rgba(255, 45, 85, 0.15)';
-        // Red glowing sun core in Dojo
+        // Twinkling alpha modulation
+        const twinkle = 0.3 + 0.7 * Math.abs(Math.sin((dist * 0.04) + i));
+        ctx.fillStyle = `rgba(255, 255, 255, ${twinkle})`;
+        
+        // Vary sizes to make stars look distant and varied
+        const starSize = (i % 3 === 0) ? 2.2 : ((i % 2 === 0) ? 1.5 : 0.8);
+        
         ctx.beginPath();
-        ctx.arc(xTorii + 50, 120, 20, 0, Math.PI * 2);
+        if (i % 8 === 0) {
+          // Drawing a tiny sparkling cross star for larger ones
+          ctx.fillRect(starX - 2, starY, 5, 0.8);
+          ctx.fillRect(starX, starY - 2, 0.8, 5);
+        } else {
+          ctx.arc(starX, starY, starSize, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // 3. Giant planet Saturn with beautiful glowing cosmic rings
+      const planetX = (550 - (dist * 0.04)) % (BASE_WIDTH + 400) - 150;
+      const planetY = 90;
+      
+      // Ring behind
+      ctx.strokeStyle = 'rgba(230, 201, 255, 0.55)';
+      ctx.lineWidth = 6;
+      ctx.save();
+      ctx.translate(planetX, planetY);
+      ctx.rotate(-Math.PI / 8);
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 70, 12, 0, Math.PI, Math.PI * 2); // Top half of the ring drawn behind planet
+      ctx.stroke();
+      ctx.restore();
+
+      // Golden desert planet sphere
+      const gradPlanet = ctx.createRadialGradient(planetX - 10, planetY - 10, 5, planetX, planetY, 35);
+      gradPlanet.addColorStop(0, '#ffd54f'); // Radiant sun yellow
+      gradPlanet.addColorStop(0.5, '#ffb300'); // Ambient gold orange
+      gradPlanet.addColorStop(1, '#985e00'); // Shadowed warm brown
+      ctx.fillStyle = gradPlanet;
+      ctx.beginPath();
+      ctx.arc(planetX, planetY, 35, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Planet surface texture lines
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.12)';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(planetX, planetY, 35, Math.PI * 0.1, Math.PI * 0.9, false);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(planetX, planetY, 35, -Math.PI * 0.05, -Math.PI * 0.95, true);
+      ctx.stroke();
+
+      // Ring in front
+      ctx.strokeStyle = 'rgba(230, 201, 255, 0.75)';
+      ctx.lineWidth = 6;
+      ctx.save();
+      ctx.translate(planetX, planetY);
+      ctx.rotate(-Math.PI / 8);
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 70, 12, 0, 0, Math.PI); // Bottom half of the ring drawn in front of planet
+      ctx.stroke();
+      ctx.restore();
+
+      // 4. Distant cruising UFO/satellite
+      ctx.fillStyle = 'rgba(230, 255, 255, 0.8)';
+      const ufoX = (400 - (dist * 0.22)) % (BASE_WIDTH + 300) - 100;
+      const ufoY = 50 + Math.sin(dist * 0.05) * 12;
+      ctx.beginPath();
+      ctx.ellipse(ufoX, ufoY, 15, 5, 0, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // UFO dome with cyan light
+      ctx.fillStyle = 'rgba(0, 229, 255, 0.95)';
+      ctx.beginPath();
+      ctx.arc(ufoX, ufoY - 2, 4, Math.PI, 0, false);
+      ctx.fill();
+
+      // UFO flashing bottom lights
+      ctx.fillStyle = (Math.floor(dist / 10) % 2 === 0) ? '#ff2d55' : '#00e5ff';
+      ctx.beginPath();
+      ctx.arc(ufoX - 6, ufoY + 1, 1.5, 0, Math.PI * 2);
+      ctx.arc(ufoX + 6, ufoY + 1, 1.5, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (levelIndex === 4) {
+      // OCEAN BOTTOM / UNDERSEA FEELS: Bioluminescent seaweed, rising bubbles, submarine and cute pulsing jellyfish!
+      // 1. Sea floor depth gradient / ambient blue glow
+      ctx.fillStyle = 'rgba(0, 150, 136, 0.08)';
+      ctx.beginPath();
+      ctx.fillRect(0, 180, BASE_WIDTH, GROUND_Y - 180);
+
+      // 2. Parallax rising bubbles (slowly oscillating up and drifting)
+      ctx.strokeStyle = 'rgba(128, 222, 234, 0.45)';
+      ctx.lineWidth = 1.2;
+      for (let i = 0; i < 22; i++) {
+        // Slow float up
+        const xOffset = Math.sin((dist * 0.02) + i) * 15;
+        const bubbleX = (i * 47 + xOffset) % BASE_WIDTH;
+        const bubbleY = (GROUND_Y - 20) - ((i * 12 + dist * 0.4) % (GROUND_Y - 40));
+        const bRadius = 2 + (i % 3) * 1.5;
+
+        ctx.beginPath();
+        ctx.arc(bubbleX, bubbleY, bRadius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Tiny highlight on bubble
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.beginPath();
+        ctx.arc(bubbleX - bRadius * 0.3, bubbleY - bRadius * 0.3, bRadius * 0.2, 0, Math.PI * 2);
         ctx.fill();
       }
-      
-      // Cyber matrix streams
-      ctx.fillStyle = '#ff2d55';
-      ctx.globalAlpha = 0.25;
-      for (let i = 0; i < 15; i++) {
-        const dropX = (i * 70 - (dist * 0.4)) % (BASE_WIDTH + 40);
-        const dropY = (23 * i + (dist * 0.6)) % 320;
-        ctx.font = '8px monospace';
-        ctx.fillText(i % 2 === 0 ? '1' : '0', dropX, dropY);
+
+      // 3. Bioluminescent pulsing jellyfish floating in the background
+      for (let j = 0; j < 3; j++) {
+        const jX = (200 + j * 240 - (dist * 0.15)) % (BASE_WIDTH + 160) - 80;
+        const pulse = Math.sin((dist * 0.03) + j) * 4;
+        const jY = 90 + j * 40 + pulse;
+        
+        ctx.save();
+        ctx.translate(jX, jY);
+        
+        // Glow effect
+        ctx.fillStyle = 'rgba(0, 229, 255, 0.15)';
+        ctx.beginPath();
+        ctx.arc(0, 0, 18, Math.PI, 0, false);
+        ctx.fill();
+
+        // Jelly cup body
+        const jellGrad = ctx.createRadialGradient(0, -2, 2, 0, 0, 14);
+        jellGrad.addColorStop(0, 'rgba(0, 229, 255, 0.85)'); // vibrant cyan
+        jellGrad.addColorStop(1, 'rgba(234, 128, 252, 0.45)'); // pinky purple edge
+        ctx.fillStyle = jellGrad;
+        ctx.beginPath();
+        ctx.arc(0, 0, 14, Math.PI, 0, false);
+        ctx.lineTo(14, 2);
+        ctx.quadraticCurveTo(0, 6 + pulse, -14, 2);
+        ctx.closePath();
+        ctx.fill();
+
+        // Flashing inner dot
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(-4, -4, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Tentacles dangling & swaying
+        ctx.strokeStyle = 'rgba(0, 229, 255, 0.6)';
+        ctx.lineWidth = 1.8;
+        for (let t = -2; t <= 2; t++) {
+          const tX = t * 4;
+          const wobble = Math.sin((dist * 0.05) + t) * 5;
+          ctx.beginPath();
+          ctx.moveTo(tX, 4);
+          ctx.bezierCurveTo(tX + wobble / 2, 10, tX - wobble, 20, tX + wobble, 26);
+          ctx.stroke();
+        }
+        ctx.restore();
       }
-      ctx.globalAlpha = 1.0;
+
+      // 4. Swaying green and purple coral/seaweeds at the sea bottom
+      ctx.lineWidth = 4;
+      for (let k = 0; k < 9; k++) {
+        const weedX = (k * 110 - (dist * 0.25)) % (BASE_WIDTH + 60) - 30;
+        const weedHeight = 35 + (k % 3) * 15;
+        const sway = Math.sin((dist * 0.02) + k) * 12;
+
+        ctx.strokeStyle = (k % 2 === 0) ? '#4caf50' : '#8e24aa'; // Green or violet seaweed
+        ctx.beginPath();
+        ctx.moveTo(weedX, GROUND_Y);
+        ctx.quadraticCurveTo(weedX + sway * 0.5, GROUND_Y - weedHeight * 0.5, weedX + sway, GROUND_Y - weedHeight);
+        ctx.stroke();
+
+        ctx.strokeStyle = (k % 2 === 0) ? '#81c784' : '#ba68c8'; // lighter highlight stalk
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(weedX + 1, GROUND_Y);
+        ctx.quadraticCurveTo(weedX + sway * 0.5 + 1, GROUND_Y - weedHeight * 0.5, weedX + sway + 1, GROUND_Y - weedHeight);
+        ctx.stroke();
+        ctx.lineWidth = 4;
+      }
+
+      // 5. Ambient deep-sea submarine cruising in the distance
+      ctx.fillStyle = '#ffd54f'; // bright yellow submarine
+      ctx.strokeStyle = '#f57f17';
+      ctx.lineWidth = 2;
+      const subX = (150 - (dist * 0.12)) % (BASE_WIDTH + 300) - 130;
+      const subY = 60 + Math.sin(dist * 0.02) * 8;
+      
+      ctx.save();
+      ctx.translate(subX, subY);
+      // Submarine hull
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 24, 14, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Periscope
+      ctx.strokeStyle = '#f57f17';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(0, -10);
+      ctx.lineTo(0, -18);
+      ctx.lineTo(6, -18);
+      ctx.stroke();
+
+      // Propeller at the back (spinning aspect)
+      ctx.strokeStyle = '#333';
+      ctx.lineWidth = 1.8;
+      const propSpin = Math.sin(dist * 0.3) * 6;
+      ctx.beginPath();
+      ctx.moveTo(-28, -propSpin);
+      ctx.lineTo(-28, propSpin);
+      ctx.stroke();
+
+      ctx.fillStyle = '#333';
+      ctx.fillRect(-26, -3, 3, 6);
+
+      // Windows (Portholes) with glowing blue light
+      ctx.fillStyle = '#00e5ff';
+      ctx.beginPath();
+      ctx.arc(-8, 0, 3.2, 0, Math.PI * 2);
+      ctx.arc(4, 0, 3.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
     } else {
       // FUJI ICE PEAKS: Glacier crystals, white snowy flakes
       ctx.fillStyle = 'rgba(173, 216, 230, 0.1)';
@@ -1475,6 +2285,90 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
     onStartGame?.();
   };
 
+  // Configured variables for 3D Transition Banners (Fases 2, 3 and 4)
+  const getBannerDetails = () => {
+    let bannerGlow = 'from-amber-500 to-salmon-500';
+    let bannerIcon = '☀️';
+    let bannerIconBg = 'from-amber-400 to-amber-600 shadow-amber-500/35 border-yellow-300/40';
+    let bannerIconRotate = [0, 360];
+    let bannerTag = '⛩️ CONQUISTA DE SAMURAI';
+    let bannerTagColor = 'text-amber-450 border-amber-500/30';
+    let bannerTitle = 'Fase 1 Concluída!';
+    let bannerSub = 'Você dominou a Cozinha Ryotei com perfeição! Agora as coisas vão esquentar lá fora...';
+    let bannerNextStyle = 'bg-sky-500/10 border-sky-400/20';
+    let bannerNextLine = '🌇 CIDADE DE DIA ☀️';
+    let bannerNextDesc = 'Aperte o cinto para desviar dos obstáculos sob a luz do sol!';
+    let bannerBtnStyle = 'from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 border-amber-800';
+    let bannerBtnId = 'start-phase2-button';
+    let bannerBtnText = 'INICIAR FASE 2 (DE DIA) ➡️';
+
+    if (transitionPhase === 3) {
+      bannerGlow = 'from-sky-500 to-blue-600';
+      bannerIcon = '🌧️';
+      bannerIconBg = 'from-sky-400 to-blue-600 shadow-sky-500/35 border-sky-300/40';
+      bannerIconRotate = [-8, 8, -8];
+      bannerTag = '🌩️ PILOTO DE TORMENTA';
+      bannerTagColor = 'text-sky-450 border-sky-500/30';
+      bannerTitle = 'Fase 2 Concluída!';
+      bannerSub = 'A cidade ensolarada foi dominada! Mas o clima mudou e nuvens pesadas se aproximam...';
+      bannerNextStyle = 'bg-sky-500/10 border-sky-400/20';
+      bannerNextLine = '🌧️ CHUVA NA CIDADE 🌧️';
+      bannerNextDesc = 'Desvie de obstáculos sob uma ventania com pingos de chuva na diagonal!';
+      bannerBtnStyle = 'from-sky-500 to-sky-600 hover:from-sky-600 hover:to-sky-700 text-slate-950 border-sky-800';
+      bannerBtnId = 'start-phase3-button';
+      bannerBtnText = 'INICIAR FASE 3 (COM CHUVA) ➡️';
+    } else if (transitionPhase === 4) {
+      bannerGlow = 'from-purple-500 to-fuchsia-500';
+      bannerIcon = '🚀';
+      bannerIconBg = 'from-purple-400 to-indigo-600 shadow-purple-500/35 border-purple-300/40';
+      bannerIconRotate = [0, -15, 15, 0];
+      bannerTag = '🌌 EXPLORADOR CÓSMICO';
+      bannerTagColor = 'text-purple-400 border-purple-500/35';
+      bannerTitle = 'Fase 3 Concluída!';
+      bannerSub = 'Você sobreviveu à tempestade implacável! Prepare-se para decolar em uma jornada além da Terra...';
+      bannerNextStyle = 'bg-purple-500/15 border-purple-400/25';
+      bannerNextLine = '🚀 ESPAÇO SIDERAL 🌌';
+      bannerNextDesc = 'Gravidade zero! Desvie de meteoros e restos cósmicos no vácuo estelar!';
+      bannerBtnStyle = 'from-purple-500 to-fuchsia-600 hover:from-purple-600 hover:to-fuchsia-700 text-slate-950 border-purple-800';
+      bannerBtnId = 'start-phase4-button';
+      bannerBtnText = 'INICIAR FASE 4 (NO ESPAÇO) ➡️';
+    } else if (transitionPhase === 5) {
+      bannerGlow = 'from-cyan-500 to-blue-500';
+      bannerIcon = '🐙';
+      bannerIconBg = 'from-cyan-400 to-blue-600 shadow-cyan-500/35 border-cyan-300/40';
+      bannerIconRotate = [-8, 8, -8];
+      bannerTag = '🔱 MERGULHADOR ABISSAL';
+      bannerTagColor = 'text-cyan-400 border-cyan-500/35';
+      bannerTitle = 'Fase 4 Concluída!';
+      bannerSub = 'Você conquistou a gravidade zero do espaço! Agora prepare-se para submergir nas profundezas misteriosas do oceano...';
+      bannerNextStyle = 'bg-cyan-500/15 border-cyan-400/25';
+      bannerNextLine = '🌊 FUNDO DO MAR 🐙';
+      bannerNextDesc = 'Sinta a pressão das águas! Desvie de polvos gigantes, mureias e correntes marítimas!';
+      bannerBtnStyle = 'from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-slate-950 border-cyan-800';
+      bannerBtnId = 'start-phase5-button';
+      bannerBtnText = 'INICIAR FASE 5 (FUNDO DO MAR) ➡️';
+    }
+
+    return {
+      bannerGlow,
+      bannerIcon,
+      bannerIconBg,
+      bannerIconRotate,
+      bannerTag,
+      bannerTagColor,
+      bannerTitle,
+      bannerSub,
+      bannerNextStyle,
+      bannerNextLine,
+      bannerNextDesc,
+      bannerBtnStyle,
+      bannerBtnId,
+      bannerBtnText
+    };
+  };
+
+  const bannerDetails = getBannerDetails();
+
   return (
     <div className="flex flex-col h-full flex-1 bg-slate-950 border border-slate-900/50 rounded-2xl overflow-hidden shadow-2xl relative select-none font-sans" id="game-arcade-screen">
       {/* Top Console Bar */}
@@ -1498,12 +2392,14 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
             <span className="font-mono text-xs sm:text-sm font-black text-amber-400 min-w-[24px] sm:min-w-[36px] text-right">{gameScore}</span>
           </div>
 
-          <div className="flex items-center gap-0.5 sm:gap-1 text-sm sm:text-lg">
+          <div className="flex items-center gap-0.5 sm:gap-1 text-sm sm:text-lg min-h-[1.5rem] overflow-hidden">
             {[1, 2, 3].map((heart) => (
               <span
                 key={heart}
-                className={`transition-transform duration-300 ${
-                  heart <= lives ? 'text-red-500 scale-100' : 'text-slate-800 scale-90'
+                className={`transition-all duration-500 ease-out transform origin-center ${
+                  heart <= lives
+                    ? 'text-red-500 scale-100 opacity-100 rotate-0 filter drop-shadow-[0_0_4px_rgba(239,68,68,0.5)]'
+                    : 'scale-0 opacity-0 rotate-12 pointer-events-none w-0'
                 }`}
               >
                 ❤️
@@ -1526,7 +2422,12 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
         <canvas
           ref={canvasRef}
           className="block w-full max-w-full cursor-pointer touch-none bg-slate-950 border-b border-slate-900"
-          onClick={gameState === 'playing' ? triggerJump : undefined}
+          onMouseDown={handleCanvasPressStart}
+          onMouseUp={handleCanvasPressEnd}
+          onMouseLeave={handleCanvasPressEnd}
+          onTouchStart={handleCanvasPressStart}
+          onTouchEnd={handleCanvasPressEnd}
+          onTouchCancel={handleCanvasPressEnd}
         />
 
         {/* Level Up Notification Banner */}
@@ -1549,8 +2450,8 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
             </motion.div>
           )}
         </AnimatePresence>
- 
-        {/* Spectacular 3D-Animated Floating Transition Banner for Phase 2 */}
+
+        {/* Spectacular 3D-Animated Floating Transition Banner for Phase 2, Phase 3 & Phase 4 */}
         <AnimatePresence>
           {showPhaseTransitionBanner && (
             <div className="absolute inset-0 bg-slate-950/80 z-40 backdrop-blur-md flex items-center justify-center p-4 select-none">
@@ -1563,45 +2464,45 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
                 className="relative bg-gradient-to-br from-slate-900/98 via-slate-950 to-amber-950/20 border-2 border-amber-500/80 rounded-3xl p-6 sm:p-8 shadow-[0_30px_70px_rgba(245,158,11,0.25)] max-w-sm w-full text-center flex flex-col items-center"
               >
                 {/* 3D floating effect light glow */}
-                <div className="absolute -inset-1 bg-gradient-to-r from-amber-500 to-salmon-500 rounded-3xl blur opacity-20 -z-10 animate-pulse" />
+                <div className={`absolute -inset-1 bg-gradient-to-r ${bannerDetails.bannerGlow} rounded-3xl blur opacity-20 -z-10 animate-pulse`} />
 
-                {/* Animated 3D Floating Sun Icon */}
+                {/* Animated 3D Floating Icon */}
                 <motion.div
                   animate={{ 
                     y: [0, -10, 0],
-                    rotate: [0, 360],
+                    rotate: bannerDetails.bannerIconRotate,
                   }}
                   transition={{ 
                     y: { repeat: Infinity, duration: 2.2, ease: "easeInOut" },
-                    rotate: { repeat: Infinity, duration: 15, ease: "linear" }
+                    rotate: { repeat: Infinity, duration: transitionPhase === 3 ? 4 : 12, ease: "easeInOut" }
                   }}
-                  className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-amber-400 to-amber-600 rounded-full flex items-center justify-center text-3xl sm:text-4xl shadow-xl shadow-amber-500/35 border-2 border-yellow-300/40 mb-4 shrink-0"
+                  className={`w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br ${bannerDetails.bannerIconBg} rounded-full flex items-center justify-center text-3xl sm:text-4xl shadow-xl mb-4 shrink-0`}
                 >
-                  ☀️
+                  {bannerDetails.bannerIcon}
                 </motion.div>
 
-                <div className="text-[10px] sm:text-xs font-mono font-black tracking-widest text-amber-400 uppercase bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/30">
-                  ⛩️ CONQUISTA DE SAMURAI
+                <div className={`text-[10px] sm:text-xs font-mono font-black tracking-widest uppercase bg-amber-500/10 px-3 py-1 rounded-full border ${bannerDetails.bannerTagColor}`}>
+                  {bannerDetails.bannerTag}
                 </div>
 
                 <h2 className="text-2xl sm:text-3xl font-black text-white mt-3 tracking-tight drop-shadow-md">
-                  Fase 1 Concluída!
+                  {bannerDetails.bannerTitle}
                 </h2>
 
                 <p className="text-xs sm:text-sm text-slate-300 mt-2 leading-relaxed max-w-xs">
-                  Você dominou a Cozinha Ryotei com perfeição! Agora as coisas vão esquentar lá fora...
+                  {bannerDetails.bannerSub}
                 </p>
 
-                {/* Day phase note / highlight card */}
-                <div className="w-full mt-4 p-3 bg-sky-500/10 border border-sky-400/20 rounded-2xl flex flex-col items-center gap-1">
+                {/* Next phase note / highlight card */}
+                <div className={`w-full mt-4 p-3 ${bannerDetails.bannerNextStyle} rounded-2xl flex flex-col items-center gap-1`}>
                   <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-sky-300">
                     PRÓXIMA PARADA:
                   </span>
                   <p className="text-xs text-sky-200 font-extrabold flex items-center gap-1">
-                    🌇 CIDADE DE DIA ☀️
+                    {bannerDetails.bannerNextLine}
                   </p>
-                  <p className="text-[10px] text-slate-400">
-                    Aperte o cinto para desviar dos obstáculos sob a luz do sol!
+                  <p className="text-[10px] text-slate-400 text-center">
+                    {bannerDetails.bannerNextDesc}
                   </p>
                 </div>
 
@@ -1613,10 +2514,10 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
                     soundManager.playCollect();
                     setShowPhaseTransitionBanner(false);
                   }}
-                  className="w-full mt-6 py-3.5 sm:py-4 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black text-xs sm:text-sm rounded-xl sm:rounded-2xl shadow-lg shadow-amber-500/25 active:shadow-md cursor-pointer transition-all border-b-4 border-amber-800 focus:outline-none"
-                  id="start-phase2-button"
+                  className={`w-full mt-6 py-3.5 sm:py-4 bg-gradient-to-r ${bannerDetails.bannerBtnStyle} font-black text-xs sm:text-sm rounded-xl sm:rounded-2xl shadow-lg cursor-pointer transition-all border-b-4 focus:outline-none`}
+                  id={bannerDetails.bannerBtnId}
                 >
-                  INICIAR FASE 2 (DE DIA) ➡️
+                  {bannerDetails.bannerBtnText}
                 </motion.button>
               </motion.div>
             </div>
@@ -1645,7 +2546,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
                 Sushi Rush Online
               </h2>
               <p className="text-xs sm:text-sm md:text-base text-slate-350 mt-2 mb-5 xs:mb-7 sm:mb-9 max-w-sm leading-relaxed">
-                Divirta-se enquanto espera seu pedido. Supere obstáculos e avance de fase a cada <span className="text-amber-400 font-extrabold">300 pontos</span>!
+                Divirta-se enquanto espera seu pedido. Supere obstáculos e avance de fase acumulando pontos!
               </p>
 
               {/* Name field input */}
@@ -1773,7 +2674,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
               </p>
 
               <div className="mb-5 xs:mb-7 sm:mb-9 bg-slate-900/80 border border-slate-800 px-4 py-2.5 sm:px-5 sm:py-3.5 rounded-xl sm:rounded-2xl max-w-sm text-xs sm:text-sm text-slate-300 leading-snug">
-                Fase alcançada: <span className="text-salmon-400 font-bold">{getThemeColors(gameScore).name}</span>. Novas fases e cenários a cada <span className="text-amber-400 font-bold">300 pontos</span>!
+                Fase alcançada: <span className="text-salmon-400 font-bold">{getThemeColors(gameScore).name}</span>. Novas fases e cenários a partir de <span className="text-amber-400 font-bold">50, 105, 165, 235 e 315 pontos</span>!
               </div>
 
               <div className="flex gap-3 sm:gap-4">
