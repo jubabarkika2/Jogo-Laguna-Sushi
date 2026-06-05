@@ -3,6 +3,7 @@ import { GameState, CharacterType, GameObstacle, GameCollectible, GameParticle, 
 import { soundManager } from '../utils/sound';
 import { Play, RotateCcw, Volume2, VolumeX, Pause, Trophy, Info, Eye, Zap, Flame, ShieldAlert, Award } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import SushiLogo from './SushiLogo';
 import { getLeaderboard, saveHighScoreToFirestore, testConnection } from '../utils/firebase';
 import { getSupabaseLeaderboard, saveHighScoreToSupabase, isSupabaseConfigured } from '../utils/supabase';
 
@@ -711,7 +712,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
       const randType = types[Math.floor(Math.random() * types.length)];
 
       const heightY = GROUND_Y - 60 - Math.random() * 120; // different heights
-      const points = randType === 'laguna_sushi' ? 30 : (randType === 'soy_sauce' ? 20 : 10);
+      const points = randType === 'laguna_sushi' ? 10 : (randType === 'soy_sauce' ? 3 : 1);
       const colWidth = randType === 'laguna_sushi' ? 104 : 25;
       const colHeight = randType === 'laguna_sushi' ? 52 : 25;
 
@@ -820,9 +821,99 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
     // Draw Parallax decorative assets based on level theme
     drawParallaxDecorations(ctx);
 
-    // 2. Draw ground platform
+    // 2. Draw ground platform and dynamic scrolling motion textures
     ctx.fillStyle = tCol.groundColor;
     ctx.fillRect(0, GROUND_Y, BASE_WIDTH, bgVirtualHeight - GROUND_Y);
+
+    ctx.save();
+    const dist = levelDistanceRef.current;
+    const levelIndex = getLevelIndex(gameScoreRef.current);
+
+    if (levelIndex === 0) {
+      // Traditional wooden planks on the kitchen floor scrolling backwards
+      ctx.strokeStyle = 'rgba(70, 30, 10, 0.35)';
+      ctx.lineWidth = 2.5;
+      for (let i = 0; i < 15; i++) {
+        const xJoint = ((i * 80 - dist * 1.5) % (BASE_WIDTH + 100) + (BASE_WIDTH + 100)) % (BASE_WIDTH + 100) - 50;
+        ctx.beginPath();
+        ctx.moveTo(xJoint, GROUND_Y);
+        ctx.lineTo(xJoint, bgVirtualHeight);
+        ctx.stroke();
+      }
+      // Horizontal bamboo mat slats
+      ctx.strokeStyle = 'rgba(50, 15, 5, 0.25)';
+      ctx.lineWidth = 1.5;
+      for (let y = GROUND_Y + 12; y < bgVirtualHeight; y += 12) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(BASE_WIDTH, y);
+        ctx.stroke();
+      }
+    } else if (levelIndex === 1 || levelIndex === 2) {
+      // Beautiful fast highway dash lines!
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.55)';
+      ctx.lineWidth = 5;
+      ctx.setLineDash([35, 30]);
+      ctx.beginPath();
+      // Side lines/lane markers scroll
+      const roadDashX = -(dist * 4) % 65;
+      ctx.lineDashOffset = roadDashX;
+      ctx.moveTo(0, GROUND_Y + 38);
+      ctx.lineTo(BASE_WIDTH, GROUND_Y + 38);
+      ctx.stroke();
+      ctx.setLineDash([]); // clear dash
+
+      // Road gravel dots passing by very fast
+      ctx.fillStyle = levelIndex === 1 ? 'rgba(0, 0, 0, 0.12)' : 'rgba(255, 255, 255, 0.12)';
+      for (let i = 0; i < 15; i++) {
+        const gx = ((i * 107 - dist * 5) % BASE_WIDTH + BASE_WIDTH) % BASE_WIDTH;
+        const gy = GROUND_Y + 8 + (i * 11) % (bgVirtualHeight - GROUND_Y - 16);
+        ctx.fillRect(gx, gy, 3, 2);
+      }
+    } else if (levelIndex === 3) {
+      // Space grid scrolling underneath the motorcycle
+      ctx.strokeStyle = 'rgba(224, 64, 251, 0.25)';
+      ctx.lineWidth = 1.5;
+      for (let i = 0; i < 12; i++) {
+        const gx = ((i * 85 - dist * 2.2) % (BASE_WIDTH + 100) + (BASE_WIDTH + 100)) % (BASE_WIDTH + 100) - 50;
+        ctx.beginPath();
+        ctx.moveTo(gx, GROUND_Y);
+        ctx.lineTo(gx, bgVirtualHeight);
+        ctx.stroke();
+      }
+      ctx.strokeStyle = 'rgba(224, 64, 251, 0.13)';
+      for (let y = GROUND_Y + 15; y < bgVirtualHeight; y += 15) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(BASE_WIDTH, y);
+        ctx.stroke();
+      }
+    } else if (levelIndex === 4) {
+      // Sand waves back-drifting on the sea floor
+      ctx.strokeStyle = 'rgba(0, 229, 255, 0.3)';
+      ctx.lineWidth = 2.5;
+      for (let k = 0; k < 6; k++) {
+        const xWave = ((k * 180 - dist * 1.8) % (BASE_WIDTH + 200) + (BASE_WIDTH + 200)) % (BASE_WIDTH + 200) - 100;
+        ctx.beginPath();
+        ctx.moveTo(xWave, GROUND_Y + 18);
+        ctx.bezierCurveTo(xWave + 45, GROUND_Y + 6, xWave + 90, GROUND_Y + 30, xWave + 135, GROUND_Y + 18);
+        ctx.stroke();
+      }
+    } else if (levelIndex === 5) {
+      // Frozen mountain cracked ice road
+      ctx.strokeStyle = 'rgba(128, 222, 234, 0.45)';
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 8; i++) {
+        const cx = ((i * 160 - dist * 3.2) % (BASE_WIDTH + 200) + (BASE_WIDTH + 200)) % (BASE_WIDTH + 200) - 100;
+        ctx.beginPath();
+        ctx.moveTo(cx, GROUND_Y);
+        ctx.lineTo(cx + 20, GROUND_Y + 15);
+        ctx.lineTo(cx + 5, GROUND_Y + 35);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+
     // Draw neon lining on ground edge
     ctx.strokeStyle = tCol.accentColor;
     ctx.lineWidth = 3;
@@ -2028,12 +2119,17 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
     const dist = levelDistanceRef.current;
     const levelIndex = getLevelIndex(gameScoreRef.current);
 
+    // Mathematical wrap helper to handle infinite scrolling perfectly (avoids negative JS modulo bugs)
+    const wrapX = (val: number, max: number) => {
+      return ((val % max) + max) % max;
+    };
+
     if (levelIndex === 0) {
       // KITCHEN BACKDROP: Traditional lanterns, bamboo blinds
       ctx.fillStyle = 'rgba(255, 235, 205, 0.05)';
-      // Draw 3 tatami sliding panel frames
+      // Draw tatami sliding panel frames
       for (let i = 0; i < 4; i++) {
-        const xCoord = (i * 260 - (dist * 0.15)) % (BASE_WIDTH + 100);
+        const xCoord = wrapX(i * 260 - (dist * 0.35), BASE_WIDTH + 260) - 180;
         ctx.fillRect(xCoord, 10, 180, GROUND_Y - 20);
         ctx.strokeStyle = 'rgba(120, 80, 40, 0.15)';
         ctx.lineWidth = 2;
@@ -2043,7 +2139,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
       // Draw red decorative lanterns glowing up high
       ctx.fillStyle = 'rgba(250, 40, 10, 0.4)';
       for (let i = 0; i < 3; i++) {
-        const xLantern = (i * 320 - (dist * 0.25)) % (BASE_WIDTH + 100);
+        const xLantern = wrapX(i * 320 - (dist * 0.6), BASE_WIDTH + 100) - 50;
         ctx.beginPath();
         ctx.roundRect(xLantern, 20, 25, 38, 5);
         ctx.fill();
@@ -2059,7 +2155,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
       // Sky clouds (since it is daytime, we can draw some beautiful soft white cumulus clouds drifting in the background)
       ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
       for (let i = 0; i < 4; i++) {
-        const xCloud = (i * 260 - (dist * 0.15)) % (BASE_WIDTH + 150);
+        const xCloud = wrapX(i * 260 - (dist * 0.15), BASE_WIDTH + 150) - 100;
         ctx.beginPath();
         ctx.arc(xCloud, 40 + (i % 2) * 15, 20, 0, Math.PI * 2);
         ctx.arc(xCloud + 15, 30 + (i % 2) * 15, 25, 0, Math.PI * 2);
@@ -2067,10 +2163,10 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
         ctx.fill();
       }
 
-      // Skyline silhouettes in rich black day outline
+      // Skyline silhouettes in rich black day outline with smooth scroll wrapping
       for (let i = 0; i < 5; i++) {
         ctx.fillStyle = 'rgba(15, 15, 15, 0.95)';
-        const xBuilding = (i * 220 - (dist * 0.1)) % (BASE_WIDTH + 120);
+        const xBuilding = wrapX(i * 220 - (dist * 0.45), BASE_WIDTH + 220) - 110;
         const wBuilding = 140;
         const hBuilding = 240 + (i % 2) * 80; // Taller buildings
         ctx.fillRect(xBuilding, GROUND_Y - hBuilding, wBuilding, hBuilding);
@@ -2085,29 +2181,30 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
         }
       }
 
-      // Beautiful Mt Fuji in daytime blue/snow
+      // Beautiful Mt Fuji in daytime blue/snow which moves infinitely in parallax
       ctx.fillStyle = 'rgba(45, 80, 115, 0.22)';
+      const fujiOffset = wrapX(- (dist * 0.04), BASE_WIDTH + 600) - 300;
       ctx.beginPath();
-      ctx.moveTo(400 - (dist * 0.04) % 1000, GROUND_Y);
-      ctx.lineTo(550 - (dist * 0.04) % 1000, 120);
-      ctx.lineTo(590 - (dist * 0.04) % 1000, 120);
-      ctx.lineTo(740 - (dist * 0.04) % 1000, GROUND_Y);
+      ctx.moveTo(400 + fujiOffset, GROUND_Y);
+      ctx.lineTo(550 + fujiOffset, 120);
+      ctx.lineTo(590 + fujiOffset, 120);
+      ctx.lineTo(740 + fujiOffset, GROUND_Y);
       ctx.fill();
 
       // Fuji snow cap outline
       ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
       ctx.beginPath();
-      ctx.moveTo(515 - (dist * 0.04) % 1000, 150);
-      ctx.lineTo(550 - (dist * 0.04) % 1000, 120);
-      ctx.lineTo(590 - (dist * 0.04) % 1000, 120);
-      ctx.lineTo(625 - (dist * 0.04) % 1000, 150);
+      ctx.moveTo(515 + fujiOffset, 150);
+      ctx.lineTo(550 + fujiOffset, 120);
+      ctx.lineTo(590 + fujiOffset, 120);
+      ctx.lineTo(625 + fujiOffset, 150);
       ctx.fill();
     } else if (levelIndex === 2) {
       // OVERCAST RAINY DAY CITY: Black city buildings and diagonal falling rain 🌧️
       // Overcast dark grey/blue rain clouds
       ctx.fillStyle = 'rgba(84, 110, 122, 0.45)';
       for (let i = 0; i < 4; i++) {
-        const xCloud = (i * 260 - (dist * 0.15)) % (BASE_WIDTH + 150);
+        const xCloud = wrapX(i * 260 - (dist * 0.2), BASE_WIDTH + 150) - 100;
         ctx.beginPath();
         ctx.arc(xCloud, 40 + (i % 2) * 15, 25, 0, Math.PI * 2);
         ctx.arc(xCloud + 18, 30 + (i % 2) * 15, 30, 0, Math.PI * 2);
@@ -2118,7 +2215,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
       // Skyline silhouettes in solid rich black
       for (let i = 0; i < 5; i++) {
         ctx.fillStyle = '#0a0d10';
-        const xBuilding = (i * 220 - (dist * 0.1)) % (BASE_WIDTH + 1205) - 100;
+        const xBuilding = wrapX(i * 220 - (dist * 0.5), BASE_WIDTH + 220) - 110;
         const wBuilding = 140;
         const hBuilding = 240 + (i % 2) * 80; // High buildings
         ctx.fillRect(xBuilding, GROUND_Y - hBuilding, wBuilding, hBuilding);
@@ -2133,13 +2230,14 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
         }
       }
 
-      // Beautiful Mt Fuji silhouetted in dark indigo storm rest
+      // Beautiful Mt Fuji silhouetted in dark indigo storm rest scrolling in paralax
       ctx.fillStyle = 'rgba(38, 50, 56, 0.5)';
+      const fujiOffset = wrapX(- (dist * 0.04), BASE_WIDTH + 600) - 300;
       ctx.beginPath();
-      ctx.moveTo(400 - (dist * 0.04) % 1000, GROUND_Y);
-      ctx.lineTo(550 - (dist * 0.04) % 1000, 120);
-      ctx.lineTo(590 - (dist * 0.04) % 1000, 120);
-      ctx.lineTo(740 - (dist * 0.04) % 1000, GROUND_Y);
+      ctx.moveTo(400 + fujiOffset, GROUND_Y);
+      ctx.lineTo(550 + fujiOffset, 120);
+      ctx.lineTo(590 + fujiOffset, 120);
+      ctx.lineTo(740 + fujiOffset, GROUND_Y);
       ctx.fill();
 
       // Beautiful diagonal falling rain drops
@@ -2148,8 +2246,8 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
       for (let i = 0; i < 50; i++) {
         const rainSpeedX = 5;
         const rainSpeedY = 13;
-        const dropX = (i * 22 + dist * rainSpeedX) % (BASE_WIDTH + 100) - 50;
-        const dropY = (i * 18 + dist * rainSpeedY) % GROUND_Y;
+        const dropX = wrapX(i * 22 + dist * rainSpeedX, BASE_WIDTH + 100) - 50;
+        const dropY = wrapX(i * 18 + dist * rainSpeedY, GROUND_Y);
         
         ctx.beginPath();
         ctx.moveTo(dropX, dropY);
@@ -2160,7 +2258,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
       // OUTER SPACE: Twinkling cosmic stars, gorgeous nebulae, ringed giant planet
       // 1. Distant space nebulae dust
       ctx.fillStyle = 'rgba(103, 58, 183, 0.12)';
-      const nebulaX = (280 - (dist * 0.06)) % (BASE_WIDTH + 300) - 100;
+      const nebulaX = wrapX(280 - (dist * 0.08), BASE_WIDTH + 400) - 200;
       ctx.beginPath();
       ctx.arc(nebulaX, 80, 120, 0, Math.PI * 2);
       ctx.arc(nebulaX + 130, 110, 90, 0, Math.PI * 2);
@@ -2169,7 +2267,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
       // 2. Beautiful parallax twinkling stars
       for (let i = 0; i < 40; i++) {
         // Pseudo-random coordinates based on indexes
-        const starX = (i * 37 - (dist * 0.12)) % (BASE_WIDTH + 80);
+        const starX = wrapX(i * 37 - (dist * 0.12), BASE_WIDTH + 80) - 40;
         const starY = (i * 19 + 15) % (GROUND_Y - 30);
         
         // Twinkling alpha modulation
@@ -2191,7 +2289,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
       }
 
       // 3. Giant planet Saturn with beautiful glowing cosmic rings
-      const planetX = (550 - (dist * 0.04)) % (BASE_WIDTH + 400) - 150;
+      const planetX = wrapX(550 - (dist * 0.04), BASE_WIDTH + 400) - 150;
       const planetY = 90;
       
       // Ring behind
@@ -2238,7 +2336,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
 
       // 4. Distant cruising UFO/satellite
       ctx.fillStyle = 'rgba(230, 255, 255, 0.8)';
-      const ufoX = (400 - (dist * 0.22)) % (BASE_WIDTH + 300) - 100;
+      const ufoX = wrapX(400 - (dist * 0.3), BASE_WIDTH + 300) - 100;
       const ufoY = 50 + Math.sin(dist * 0.05) * 12;
       ctx.beginPath();
       ctx.ellipse(ufoX, ufoY, 15, 5, 0, 0, Math.PI * 2);
@@ -2269,8 +2367,8 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
       for (let i = 0; i < 22; i++) {
         // Slow float up
         const xOffset = Math.sin((dist * 0.02) + i) * 15;
-        const bubbleX = (i * 47 + xOffset) % BASE_WIDTH;
-        const bubbleY = (GROUND_Y - 20) - ((i * 12 + dist * 0.4) % (GROUND_Y - 40));
+        const bubbleX = wrapX(i * 47 + xOffset - (dist * 0.1), BASE_WIDTH);
+        const bubbleY = (GROUND_Y - 20) - wrapX(i * 12 + dist * 0.4, GROUND_Y - 40);
         const bRadius = 2 + (i % 3) * 1.5;
 
         ctx.beginPath();
@@ -2286,7 +2384,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
 
       // 3. Bioluminescent pulsing jellyfish floating in the background
       for (let j = 0; j < 3; j++) {
-        const jX = (200 + j * 240 - (dist * 0.15)) % (BASE_WIDTH + 160) - 80;
+        const jX = wrapX(200 + j * 240 - (dist * 0.18), BASE_WIDTH + 160) - 80;
         const pulse = Math.sin((dist * 0.03) + j) * 4;
         const jY = 90 + j * 40 + pulse;
         
@@ -2334,7 +2432,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
       // 4. Swaying green and purple coral/seaweeds at the sea bottom
       ctx.lineWidth = 4;
       for (let k = 0; k < 9; k++) {
-        const weedX = (k * 110 - (dist * 0.25)) % (BASE_WIDTH + 60) - 30;
+        const weedX = wrapX(k * 110 - (dist * 0.4), BASE_WIDTH + 60) - 30;
         const weedHeight = 35 + (k % 3) * 15;
         const sway = Math.sin((dist * 0.02) + k) * 12;
 
@@ -2357,7 +2455,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
       ctx.fillStyle = '#ffd54f'; // bright yellow submarine
       ctx.strokeStyle = '#f57f17';
       ctx.lineWidth = 2;
-      const subX = (150 - (dist * 0.12)) % (BASE_WIDTH + 300) - 130;
+      const subX = wrapX(150 - (dist * 0.14), BASE_WIDTH + 300) - 130;
       const subY = 60 + Math.sin(dist * 0.02) * 8;
       
       ctx.save();
@@ -2401,7 +2499,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
       // FUJI ICE PEAKS: Glacier crystals, white snowy flakes
       ctx.fillStyle = 'rgba(173, 216, 230, 0.1)';
       for (let i = 0; i < 3; i++) {
-        const xGlacier = (i * 350 - (dist * 0.06)) % (BASE_WIDTH + 200);
+        const xGlacier = wrapX(i * 350 - (dist * 0.06), BASE_WIDTH + 200) - 100;
         ctx.beginPath();
         ctx.moveTo(xGlacier, GROUND_Y);
         ctx.lineTo(xGlacier + 100, 100);
@@ -2424,8 +2522,8 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
       ctx.fillStyle = '#ffffff';
       ctx.globalAlpha = 0.6;
       for (let i = 0; i < 20; i++) {
-        const flakeX = (i * 55 - (dist * 0.3)) % (BASE_WIDTH + 40);
-        const flakeY = (18 * i + (dist * 0.12)) % 320;
+        const flakeX = wrapX(i * 55 - (dist * 0.5), BASE_WIDTH + 40) - 20;
+        const flakeY = wrapX(18 * i + (dist * 0.25), 320);
         ctx.beginPath();
         ctx.arc(flakeX, flakeY, 3, 0, Math.PI * 2);
         ctx.fill();
@@ -2563,7 +2661,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
         <div className="flex items-center gap-2 sm:gap-3">
           {/* Logo element resembling game tag */}
           <div className="h-7 sm:h-9 px-2 sm:px-3 bg-gradient-to-r from-salmon-500 to-amber-500 text-slate-950 rounded-lg flex items-center justify-center font-black tracking-tight text-xs sm:text-sm shadow-lg shadow-salmon-500/20 shrink-0">
-            🍣 <span className="hidden xs:inline ml-1">SUSHI RUSH</span>
+            🍣 <span className="hidden xs:inline ml-1">LAGUNA SUSHI RUSH</span>
           </div>
           <div>
             <h3 className="text-[10px] sm:text-xs font-bold font-mono tracking-wider text-slate-400 capitalize">
@@ -2730,7 +2828,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
                 🍣
               </motion.div>
               <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-tight flex items-center gap-2">
-                Sushi Rush Online
+                Laguna Sushi Rush
               </h2>
               <p className="text-xs sm:text-sm md:text-base text-slate-350 mt-2 mb-5 xs:mb-7 sm:mb-9 max-w-sm leading-relaxed">
                 Divirta-se enquanto espera seu pedido. Supere obstáculos e avance de fase acumulando pontos!
@@ -2892,7 +2990,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
               exit={{ opacity: 0 }}
               className="absolute inset-0 bg-slate-950/95 flex flex-col items-center justify-center p-6 sm:p-8 text-slate-200 z-20 text-center overflow-y-auto"
             >
-              <h3 className="text-lg sm:text-xl md:text-2xl font-black text-white mb-3 sm:mb-5">Como Jogar: Sushi Rush 🍱</h3>
+              <h3 className="text-lg sm:text-xl md:text-2xl font-black text-white mb-3 sm:mb-5">Como Jogar: Laguna Sushi Rush 🍱</h3>
               <div className="space-y-3 sm:space-y-4 text-left text-xs sm:text-sm md:text-base text-slate-300 max-w-sm mb-5 sm:mb-7 leading-relaxed">
                 <div className="flex gap-3 items-start">
                   <div className="bg-slate-900 border border-slate-800 px-2 py-1 text-[10px] sm:text-xs font-bold rounded font-mono shrink-0">ESPAÇO / ↑</div>
