@@ -286,10 +286,10 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
       canvas.width = rect.width;
       
       if (rect.width < 640) {
-        // On mobile, let the game occupies a taller aspect ratio to use vertical screen space
-        // Maximize game canvas to fill more space beautifully
-        const mobileHeight = Math.min(rect.width * 1.1, rect.height || 450);
-        canvas.height = Math.max(mobileHeight, 350);
+        // Maintain a perfect 3:1 sky-to-ground proportion on mobile (virtual height of 480)
+        // Sky height (to GROUND_Y) is 360, ground height is 120. Ratio is 360/120 = 3
+        const scale = rect.width / BASE_WIDTH;
+        canvas.height = 480 * scale;
       } else {
         canvas.height = Math.min(rect.width * 0.5, 420); // Maintain 2:1 aspect ratio or caps at 420
       }
@@ -2441,7 +2441,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
       </div>
 
       {/* Main Canvas Space */}
-      <div className="relative flex-1 bg-slate-950 min-h-[450px] xs:min-h-[490px] sm:min-h-[470px] md:min-h-[520px] shadow-inner flex items-center justify-center overflow-hidden" ref={containerRef}>
+      <div className="relative flex-1 bg-slate-950 min-h-[220px] xs:min-h-[260px] sm:min-h-[350px] md:min-h-[520px] shadow-inner flex items-center justify-center overflow-hidden" ref={containerRef}>
         <canvas
           ref={canvasRef}
           className="block w-full max-w-full cursor-pointer touch-none bg-slate-950 border-b border-slate-900"
