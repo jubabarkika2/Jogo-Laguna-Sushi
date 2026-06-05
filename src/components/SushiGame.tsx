@@ -316,10 +316,10 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
       canvas.width = rect.width;
       
       if (rect.width < 640) {
-        // Use a stable, deterministic aspect ratio on mobile to prevent infinite layout loops that crash GPU memory, but make it taller per user request.
-        canvas.height = Math.min(rect.width * 0.75, 400);
+        // Use a stable, deterministic aspect ratio on mobile, capped at 700px per user request.
+        canvas.height = Math.min(rect.width * 1.25, 700);
       } else {
-        canvas.height = Math.min(rect.width * 0.5, 420); // Maintain 2:1 aspect ratio or caps at 420
+        canvas.height = Math.min(rect.width * 0.75, 700); // Caps at 700px per user request
       }
     };
 
