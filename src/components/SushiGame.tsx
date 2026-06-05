@@ -81,6 +81,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
   const speedScaleRef = useRef(1.0);
   const obstacleTimerRef = useRef(0);
   const collectibleTimerRef = useRef(0);
+  const graceTicksRef = useRef(300);
 
   const getLevelIndex = (score: number): number => {
     if (score < 400) return 0;
@@ -231,6 +232,15 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
       }
     }
   }, [gameScore, gameState]);
+
+  // Handle 5-second grace period reset at starting or transitioning levels
+  useEffect(() => {
+    if (gameState === 'playing' && !showPhaseTransitionBanner) {
+      graceTicksRef.current = 300;
+      obstaclesRef.current = [];
+      collectiblesRef.current = [];
+    }
+  }, [gameState, showPhaseTransitionBanner]);
 
   // Load High scores from database with localstorage as fallback setup
   useEffect(() => {
@@ -622,6 +632,11 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
   };
 
   const updateSpawners = () => {
+    if (graceTicksRef.current > 0) {
+      graceTicksRef.current--;
+      return;
+    }
+
     obstacleTimerRef.current++;
     collectibleTimerRef.current++;
 
@@ -1851,6 +1866,94 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
     }
 
     ctx.restore(); // Restore Player Transform
+
+    // Render 5-second initial grace tutorial overlay
+    if (graceTicksRef.current > 0) {
+      // 1. Subtle dark focus veneer
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+      ctx.fillRect(0, 0, BASE_WIDTH, virtualHeight);
+
+      // 2. Tapping hand animation logic
+      const now = Date.now();
+      const bounce = Math.sin(now / 150) * 10;
+      const handX = 220;
+      const handY = 200 + bounce;
+
+      // Draw a pulsating target circle matching beautiful neon theme
+      ctx.save();
+      ctx.shadowBlur = 0; // reset shadow
+      ctx.shadowColor = 'transparent';
+
+      const pulseRadius = 15 + Math.abs(Math.sin(now / 250) * 15);
+      const pulseAlpha = Math.max(1 - (pulseRadius - 15) / 15, 0);
+
+      ctx.strokeStyle = `rgba(255, 112, 67, ${pulseAlpha * 0.95})`; // Coral color pulse
+      ctx.lineWidth = 3.5;
+      ctx.beginPath();
+      ctx.arc(handX, 240, pulseRadius, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Filled gold/coral center tap state indicator
+      ctx.fillStyle = '#ff7043';
+      ctx.beginPath();
+      ctx.arc(handX, 240, 6, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Hand emoji drawing
+      ctx.font = '60px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      // Add subtle drop shadow
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+      ctx.shadowBlur = 10;
+      ctx.shadowOffsetX = 3;
+      ctx.shadowOffsetY = 4;
+      ctx.fillText('👆', handX, handY);
+      ctx.restore();
+
+      // 3. Stylized instructional bubble card next to the hand
+      const cardW = 340;
+      const cardH = 88;
+      const cardX = 300;
+      const cardY = 180;
+
+      // Card Container (glassmorphic dark slate with active border glow)
+      ctx.save();
+      ctx.fillStyle = 'rgba(11, 15, 26, 0.92)'; // deep slate
+      ctx.strokeStyle = '#ffa07a'; // Peach/salmon accent border
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = 'rgba(255, 160, 122, 0.2)';
+      ctx.shadowBlur = 15;
+      ctx.beginPath();
+      ctx.roundRect(cardX, cardY, cardW, cardH, 16);
+      ctx.fill();
+      ctx.stroke();
+
+      // Header Text
+      ctx.fillStyle = '#ffa07a';
+      ctx.font = 'bold 15px "Space Grotesk", sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('PREPARE-SE! 🍣', cardX + 20, cardY + 28);
+
+      // Support Text
+      ctx.fillStyle = '#e2e8f0'; // slate-200
+      ctx.font = 'bold 11px "Space Grotesk", sans-serif';
+      ctx.fillText('Toque ou clique rápido na tela para PULAR.', cardX + 20, cardY + 50);
+      
+      ctx.fillStyle = '#94a3b8'; // slate-400
+      ctx.font = '500 10px "Space Grotesk", sans-serif';
+      ctx.fillText('Toque duas vezes para pulo duplo!', cardX + 20, cardY + 68);
+
+      // Simple real-time numeric countdown display
+      const secondsLeft = Math.ceil(graceTicksRef.current / 60);
+      ctx.fillStyle = '#ffb300'; // Amber counting number
+      ctx.font = 'bold 28px "JetBrains Mono", sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText(`${secondsLeft}s`, cardX + cardW - 20, cardY + 54);
+
+      ctx.restore();
+    }
+
     ctx.restore(); // Restore Base Resolution scale
   };
 
@@ -2740,7 +2843,7 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
                 </div>
                 <div className="flex gap-3 items-start text-salmon-400">
                   <span className="text-base sm:text-lg">⭐️</span>
-                  <span><strong>Dispositivos Móveis:</strong> Use os botões abaixo da tela do jogo para saltar e deslizar com alta precisão!</span>
+                  <span><strong>Dispositivos Móveis:</strong> Toque rápido na tela do jogo para pular (toque duplo para pulo duplo) e segure pressionado para deslizar!</span>
                 </div>
               </div>
 
@@ -2754,32 +2857,6 @@ export default function SushiGame({ order, onMilestoneReached, gameScore, setGam
           )}
         </AnimatePresence>
       </div>
-
-      {/* Arcade controls floor panel, great for touch devices */}
-      {gameState === 'playing' && (
-        <div className="p-3 sm:p-4 bg-slate-900/90 border-t border-slate-800/80 flex md:hidden items-stretch justify-around gap-3.5 select-none h-20 sm:h-24 shrink-0">
-          <button
-            onTouchStart={() => triggerSlide(true)}
-            onTouchEnd={() => triggerSlide(false)}
-            onMouseDown={() => triggerSlide(true)}
-            onMouseUp={() => triggerSlide(false)}
-            id="mobile-btn-slide"
-            className="flex-1 bg-slate-950 active:bg-slate-800 border border-slate-800/80 rounded-2xl flex items-center justify-center flex-col text-slate-300 cursor-pointer text-sm gap-1 focus:outline-none"
-          >
-            <span className="text-xl sm:text-2xl">👇</span>
-            <span className="font-bold text-[10px] sm:text-[11px] tracking-wider uppercase font-mono">Deslizar</span>
-          </button>
-
-          <button
-            onClick={triggerJump}
-            id="mobile-btn-jump"
-            className="flex-1 bg-salmon-500 active:bg-salmon-600 text-white rounded-2xl flex items-center justify-center flex-col shadow-lg shadow-salmon-500/10 cursor-pointer text-sm gap-1 focus:outline-none"
-          >
-            <span className="text-xl sm:text-2xl">⚡️</span>
-            <span className="font-bold text-[10px] sm:text-[11px] tracking-wider uppercase font-mono">Pular</span>
-          </button>
-        </div>
-      )}
 
       {/* High Scoreboard footer list toggler */}
       <div className="px-3 sm:px-4 py-1.5 sm:py-2 bg-slate-950 flex flex-col xs:flex-row items-center justify-between gap-1 xs:gap-3 text-[10px] sm:text-[11px] text-slate-500 border-t border-slate-900 select-all font-mono">
